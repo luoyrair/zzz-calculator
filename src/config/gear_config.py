@@ -1,160 +1,237 @@
 # src/config/gear_config.py
-"""重构后的驱动盘配置"""
-from typing import Dict, Any, List
+"""驱动盘配置定义 - 专注数据结构和验证"""
+from dataclasses import dataclass
+from typing import Dict, Any, List, Optional
 from .base_config import BaseConfig
+from enum import Enum
+
+
+class GearAttributeType(Enum):
+    """驱动盘属性类型"""
+    HP = "HP"
+    ATK = "ATK"
+    DEF = "DEF"
+    Impact = "Impact"
+    CRIT_Rate = "CRIT_Rate"
+    CRIT_DMG = "CRIT_DMG"
+    Anomaly_Mastery = "Anomaly_Mastery"
+    Anomaly_Proficiency = "Anomaly_Proficiency"
+    PEN_Ratio = "PEN_Ratio"
+    PEN = "PEN"
+    Energy_Regen = "Energy_Regen"
+    Physical_DMG_Bonus = "Physical_DMG_Bonus"
+    Fire_DMG_Bonus = "Fire_DMG_Bonus"
+    Ice_DMG_Bonus = "Ice_DMG_Bonus"
+    Electric_DMG_Bonus = "Electric_DMG_Bonus"
+    Ether_DMG_Bonus = "Ether_DMG_Bonus"
+
+
+class AttributeValueType(Enum):
+    """属性值类型"""
+    FIXED_VALUE = "fixed_value"
+    PERCENTAGE = "percentage"
+    RATE_PERCENTAGE = "rate_percentage"
+    DMG_BONUS_PERCENTAGE = "dmg_bonus_percentage"
+
+
+@dataclass
+class GearAttribute:
+    """驱动盘属性定义"""
+    gear_key: str
+    attribute_type: GearAttributeType
+    value_type: AttributeValueType
+    display_name: str
+    base_attribute: Optional[GearAttributeType] = None
+
+    def get_final_attribute_key(self) -> str:
+        return self.attribute_type.value
 
 
 class GearConfig(BaseConfig):
-    """驱动盘配置"""
+    """驱动盘配置管理器"""
 
     def __init__(self):
-        self.slot_config = SlotConfig()
         self.attribute_config = AttributeConfig()
-        self.growth_config = GrowthConfig()
+        self.slot_config = SlotConfig(self.attribute_config)
+        self.growth_config = GrowthConfig(self.attribute_config)
 
     def validate(self) -> bool:
-        return (self.slot_config.validate() and
-                self.attribute_config.validate() and
+        return (self.attribute_config.validate() and
+                self.slot_config.validate() and
                 self.growth_config.validate())
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "slot_config": self.slot_config.to_dict(),
             "attribute_config": self.attribute_config.to_dict(),
+            "slot_config": self.slot_config.to_dict(),
             "growth_config": self.growth_config.to_dict()
         }
 
 
-class SlotConfig:
-    """槽位配置"""
-
-    def __init__(self):
-        self.SLOT_MAIN_ATTRIBUTES = {
-            "slot_1": ["HP"],
-            "slot_2": ["ATK"],
-            "slot_3": ["DEF"],
-            "slot_4": ["ATK_PERCENT", "HP_PERCENT", "DEF_PERCENT", "CRIT_RATE", "CRIT_DMG", "ANOMALY_MASTERY"],
-            "slot_5": ["ATK_PERCENT", "HP_PERCENT", "DEF_PERCENT", "PENETRATION", "PHYSICAL_DMG", "FIRE_DMG",
-                       "ICE_DMG", "ELECTRIC_DMG", "ETHER_DMG"],
-            "slot_6": ["ATK_PERCENT", "HP_PERCENT", "DEF_PERCENT", "ANOMALY_PROFICIENCY", "IMPACT", "ENERGY_REGEN"]
-        }
-
-    def get_main_attributes_for_slot(self, slot_index: int) -> List[str]:
-        slot_key = f"slot_{slot_index}"
-        return self.SLOT_MAIN_ATTRIBUTES.get(slot_key, [])
-
-    def validate(self) -> bool:
-        return bool(self.SLOT_MAIN_ATTRIBUTES and
-                    all(self.SLOT_MAIN_ATTRIBUTES.values()))
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {"slot_main_attributes": self.SLOT_MAIN_ATTRIBUTES}
-
-
 class AttributeConfig:
-    """属性配置"""
+    """属性配置 - 管理所有属性定义"""
 
     def __init__(self):
-        self.ATTRIBUTE_DISPLAY_NAMES = {
-            "HP": "生命值",
-            "ATK": "攻击力",
-            "DEF": "防御力",
-            "HP_PERCENT": "生命值%",
-            "ATK_PERCENT": "攻击力%",
-            "DEF_PERCENT": "防御力%",
-            "CRIT_RATE": "暴击率",
-            "CRIT_DMG": "暴击伤害",
-            "ANOMALY_MASTERY": "异常精通",
-            "PHYSICAL_DMG": "物理伤害加成",
-            "FIRE_DMG": "火属性伤害加成",
-            "ICE_DMG": "冰属性伤害加成",
-            "ELECTRIC_DMG": "电属性伤害加成",
-            "ETHER_DMG": "以太伤害加成",
-            "PENETRATION": "穿透率",
-            "IMPACT": "冲击力",
-            "ANOMALY_PROFICIENCY": "异常掌控",
-            "ENERGY_REGEN": "能量回复",
-            "PENETRATION_VALUE": "穿透值"
+        self.gear_attributes = self._create_gear_attributes()
+
+    def _create_gear_attributes(self) -> Dict[str, GearAttribute]:
+        return {
+            # 固定值属性
+            "HP_FIXED": GearAttribute("HP_FIXED", GearAttributeType.HP, AttributeValueType.FIXED_VALUE, "生命值"),
+            "ATK_FIXED": GearAttribute("ATK_FIXED", GearAttributeType.ATK, AttributeValueType.FIXED_VALUE, "攻击力"),
+            "DEF_FIXED": GearAttribute("DEF_FIXED", GearAttributeType.DEF, AttributeValueType.FIXED_VALUE, "防御力"),
+            "Anomaly_Proficiency": GearAttribute("Anomaly_Proficiency", GearAttributeType.Anomaly_Proficiency,
+                                                 AttributeValueType.FIXED_VALUE, "异常精通"),
+            "PEN": GearAttribute("PEN", GearAttributeType.PEN, AttributeValueType.FIXED_VALUE, "穿透值"),
+
+            # 百分比属性
+            "HP_PERCENT": GearAttribute("HP_PERCENT", GearAttributeType.HP, AttributeValueType.PERCENTAGE, "生命值%",
+                                        GearAttributeType.HP),
+            "ATK_PERCENT": GearAttribute("ATK_PERCENT", GearAttributeType.ATK, AttributeValueType.PERCENTAGE, "攻击力%",
+                                         GearAttributeType.ATK),
+            "DEF_PERCENT": GearAttribute("DEF_PERCENT", GearAttributeType.DEF, AttributeValueType.PERCENTAGE, "防御力%",
+                                         GearAttributeType.DEF),
+            "Impact": GearAttribute("Impact", GearAttributeType.Impact, AttributeValueType.PERCENTAGE, "冲击力"),
+
+            # 比率属性
+            "CRIT_Rate": GearAttribute("CRIT_Rate", GearAttributeType.CRIT_Rate, AttributeValueType.RATE_PERCENTAGE,
+                                       "暴击率"),
+            "CRIT_DMG": GearAttribute("CRIT_DMG", GearAttributeType.CRIT_DMG, AttributeValueType.RATE_PERCENTAGE,
+                                      "暴击伤害"),
+            "PEN_Ratio": GearAttribute("PEN_Ratio", GearAttributeType.PEN_Ratio, AttributeValueType.RATE_PERCENTAGE,
+                                       "穿透率"),
+            "Anomaly_Mastery": GearAttribute("Anomaly_Mastery", GearAttributeType.Anomaly_Mastery,
+                                             AttributeValueType.RATE_PERCENTAGE, "异常掌控"),
+            "Energy_Regen": GearAttribute("Energy_Regen", GearAttributeType.Energy_Regen,
+                                          AttributeValueType.RATE_PERCENTAGE, "能量回复"),
+
+            # 伤害加成
+            "Physical_DMG_Bonus": GearAttribute("Physical_DMG_Bonus", GearAttributeType.Physical_DMG_Bonus,
+                                                AttributeValueType.DMG_BONUS_PERCENTAGE, "物理伤害加成"),
+            "Fire_DMG_Bonus": GearAttribute("Fire_DMG_Bonus", GearAttributeType.Fire_DMG_Bonus,
+                                            AttributeValueType.DMG_BONUS_PERCENTAGE, "火属性伤害加成"),
+            "Ice_DMG_Bonus": GearAttribute("Ice_DMG_Bonus", GearAttributeType.Ice_DMG_Bonus,
+                                           AttributeValueType.DMG_BONUS_PERCENTAGE, "冰属性伤害加成"),
+            "Electric_DMG_Bonus": GearAttribute("Electric_DMG_Bonus", GearAttributeType.Electric_DMG_Bonus,
+                                                AttributeValueType.DMG_BONUS_PERCENTAGE, "电属性伤害加成"),
+            "Ether_DMG_Bonus": GearAttribute("Ether_DMG_Bonus", GearAttributeType.Ether_DMG_Bonus,
+                                             AttributeValueType.DMG_BONUS_PERCENTAGE, "以太伤害加成"),
         }
 
-        self.ATTRIBUTE_MAPPING = {
-            "CRIT_RATE": "CRIT_RATE",
-            "CRIT_DMG": "CRIT_DMG",
-            "PENETRATION": "PENETRATION",
-            "PHYSICAL_DMG": "ELEMENT_DMG",
-            "FIRE_DMG": "ELEMENT_DMG",
-            "ICE_DMG": "ELEMENT_DMG",
-            "ELECTRIC_DMG": "ELEMENT_DMG",
-            "ETHER_DMG": "ELEMENT_DMG",
-            "ANOMALY_PROFICIENCY": "ANOMALY_PROFICIENCY",
-            "IMPACT": "IMPACT",
-            "ENERGY_REGEN": "ENERGY_REGEN"
-        }
+    def get_gear_attribute(self, gear_key: str) -> Optional[GearAttribute]:
+        return self.gear_attributes.get(gear_key)
 
-    def get_display_name(self, attr_key: str) -> str:
-        return self.ATTRIBUTE_DISPLAY_NAMES.get(attr_key, attr_key)
+    def get_display_name(self, gear_key: str) -> str:
+        attr = self.get_gear_attribute(gear_key)
+        return attr.display_name if attr else gear_key
 
-    def get_english_key_from_display(self, display_name: str) -> str:
-        for eng_key, chn_name in self.ATTRIBUTE_DISPLAY_NAMES.items():
-            if chn_name == display_name:
-                return eng_key
+    def get_gear_key_by_display(self, display_name: str) -> str:
+        for gear_key, attr in self.gear_attributes.items():
+            if attr.display_name == display_name:
+                return gear_key
         return display_name
 
     def validate(self) -> bool:
-        return bool(self.ATTRIBUTE_DISPLAY_NAMES)
+        return bool(self.gear_attributes)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "display_names": self.ATTRIBUTE_DISPLAY_NAMES,
-            "attribute_mapping": self.ATTRIBUTE_MAPPING
+            "gear_attributes": {k: {
+                "attribute_type": v.attribute_type.value,
+                "value_type": v.value_type.value,
+                "display_name": v.display_name,
+                "base_attribute": v.base_attribute.value if v.base_attribute else None
+            } for k, v in self.gear_attributes.items()}
         }
+
+
+class SlotConfig:
+    """槽位配置 - 管理槽位属性限制"""
+
+    def __init__(self, attribute_config: AttributeConfig):
+        self.attribute_config = attribute_config
+        self.slot_attributes = self._build_slot_attributes()
+
+    def _build_slot_attributes(self) -> Dict[str, List[str]]:
+        return {
+            "slot_1": ["HP_FIXED"],
+            "slot_2": ["ATK_FIXED"],
+            "slot_3": ["DEF_FIXED"],
+            "slot_4": ["HP_PERCENT", "ATK_PERCENT", "DEF_PERCENT", "CRIT_Rate", "CRIT_DMG", "Anomaly_Proficiency"],
+            "slot_5": ["ATK_PERCENT", "HP_PERCENT", "DEF_PERCENT", "PEN_Ratio", "Physical_DMG_Bonus", "Fire_DMG_Bonus",
+                       "Ice_DMG_Bonus", "Electric_DMG_Bonus", "Ether_DMG_Bonus"],
+            "slot_6": ["ATK_PERCENT", "HP_PERCENT", "DEF_PERCENT", "Anomaly_Mastery", "Impact", "Energy_Regen"]
+        }
+
+    def get_main_attributes_for_slot(self, slot_index: int) -> List[str]:
+        return self.slot_attributes.get(f"slot_{slot_index}", [])
+
+    def validate(self) -> bool:
+        for slot_key, attributes in self.slot_attributes.items():
+            for attr_key in attributes:
+                if not self.attribute_config.get_gear_attribute(attr_key):
+                    return False
+        return True
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"slot_attributes": self.slot_attributes}
 
 
 class GrowthConfig:
-    """成长配置"""
+    """成长配置 - 管理属性成长数据"""
 
-    def __init__(self):
-        self.MAIN_ATTR_GROWTH = {
-            "HP": {"base": 550, "growth": 110, "max": 2200},  # 生命值
-            "ATK": {"base": 79, "growth": 15.8, "max": 316},  # 攻击力
-            "DEF": {"base": 46, "growth": 9.2, "max": 184},  # 防御力
-            "HP_PERCENT": {"base": 0.075, "growth": 0.015, "max": 0.3},  # 生命值百分比
-            "ATK_PERCENT": {"base": 0.075, "growth": 0.015, "max": 0.3},  # 攻击力百分比
-            "DEF_PERCENT": {"base": 0.12, "growth": 0.024, "max": 0.48},  # 防御力百分比
-            "CRIT_RATE": {"base": 0.06, "growth": 0.012, "max": 0.24},  # 暴击率
-            "CRIT_DMG": {"base": 0.12, "growth": 0.024, "max": 0.48},  # 暴击伤害
-            "ANOMALY_MASTERY": {"base": 23, "growth": 4.6, "max": 92},  # 异常精通
-            "ELEMENT_DMG": {"base": 0.075, "growth": 0.015, "max": 0.3},  # 属性伤害百分比
-            "PENETRATION": {"base": 0.06, "growth": 0.012, "max": 0.24},  # 穿透率
-            "IMPACT": {"base": 0.045, "growth": 0.009, "max": 0.18},  # 冲击力
-            "ANOMALY_PROFICIENCY": {"base": 0.075, "growth": 0.015, "max": 0.3},  # 异常掌控
-            "ENERGY_REGEN": {"base": 0.15, "growth": 0.03, "max": 0.6}  # 能量自动回复
+    def __init__(self, attribute_config: AttributeConfig):
+        self.attribute_config = attribute_config
+        self.main_attr_growth = self._create_main_attr_growth()
+        self.sub_attr_growth = self._create_sub_attr_growth()
+
+    def _create_main_attr_growth(self) -> Dict[str, Dict[str, float]]:
+        return {
+            "HP_FIXED": {"base": 550, "growth": 110, "max": 2200},
+            "ATK_FIXED": {"base": 79, "growth": 15.8, "max": 316},
+            "DEF_FIXED": {"base": 46, "growth": 9.2, "max": 184},
+            "Anomaly_Proficiency": {"base": 23, "growth": 4.6, "max": 92},
+            "Impact": {"base": 0.045, "growth": 0.009, "max": 0.18},
+            "HP_PERCENT": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "ATK_PERCENT": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "DEF_PERCENT": {"base": 0.12, "growth": 0.024, "max": 0.48},
+            "CRIT_Rate": {"base": 0.06, "growth": 0.012, "max": 0.24},
+            "CRIT_DMG": {"base": 0.12, "growth": 0.024, "max": 0.48},
+            "PEN_Ratio": {"base": 0.06, "growth": 0.012, "max": 0.24},
+            "Anomaly_Mastery": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "Energy_Regen": {"base": 0.15, "growth": 0.03, "max": 0.6},
+            "Physical_DMG_Bonus": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "Fire_DMG_Bonus": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "Ice_DMG_Bonus": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "Electric_DMG_Bonus": {"base": 0.075, "growth": 0.015, "max": 0.3},
+            "Ether_DMG_Bonus": {"base": 0.075, "growth": 0.015, "max": 0.3},
         }
 
-        self.SUB_ATTR_GROWTH = {
-            "PENETRATION_VALUE": {"base": 9, "growth": 9, "max": 54},
-            "ANOMALY_MASTERY": {"base": 9, "growth": 9, "max": 54},
-            "DEF": {"base": 15, "growth": 15, "max": 90},
-            "ATK": {"base": 19, "growth": 19, "max": 114},
-            "HP": {"base": 112, "growth": 112, "max": 672},
-            "CRIT_RATE": {"base": 0.024, "growth": 0.024, "max": 0.144},
+    def _create_sub_attr_growth(self) -> Dict[str, Dict[str, float]]:
+        return {
+            "HP_FIXED": {"base": 112, "growth": 112, "max": 672},
+            "ATK_FIXED": {"base": 19, "growth": 19, "max": 114},
+            "DEF_FIXED": {"base": 15, "growth": 15, "max": 90},
             "HP_PERCENT": {"base": 0.03, "growth": 0.03, "max": 0.18},
             "ATK_PERCENT": {"base": 0.03, "growth": 0.03, "max": 0.18},
+            "DEF_PERCENT": {"base": 0.048, "growth": 0.048, "max": 0.288},
+            "CRIT_Rate": {"base": 0.024, "growth": 0.024, "max": 0.144},
             "CRIT_DMG": {"base": 0.048, "growth": 0.048, "max": 0.288},
-            "DEF_PERCENT": {"base": 0.048, "growth": 0.048, "max": 0.288}
+            "Anomaly_Proficiency": {"base": 9, "growth": 9, "max": 54},
+            "PEN": {"base": 9, "growth": 9, "max": 54}
         }
 
-    def get_main_attribute_growth(self, attr_name: str) -> Dict[str, float]:
-        return self.MAIN_ATTR_GROWTH.get(attr_name, {})
+    def get_main_attribute_growth(self, gear_key: str) -> Dict[str, float]:
+        return self.main_attr_growth.get(gear_key, {})
 
-    def get_sub_attribute_growth(self, attr_name: str) -> Dict[str, float]:
-        return self.SUB_ATTR_GROWTH.get(attr_name, {})
+    def get_sub_attribute_growth(self, gear_key: str) -> Dict[str, float]:
+        return self.sub_attr_growth.get(gear_key, {})
 
     def validate(self) -> bool:
-        return bool(self.MAIN_ATTR_GROWTH and self.SUB_ATTR_GROWTH)
+        return bool(self.main_attr_growth and self.sub_attr_growth)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "main_attr_growth": self.MAIN_ATTR_GROWTH,
-            "sub_attr_growth": self.SUB_ATTR_GROWTH
+            "main_attr_growth": self.main_attr_growth,
+            "sub_attr_growth": self.sub_attr_growth
         }

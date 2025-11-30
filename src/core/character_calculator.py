@@ -1,15 +1,17 @@
 # src/core/character_calculator.py
-"""重构后的角色计算器 - 使用工具函数"""
+"""重构后的角色计算器 - 适配新架构"""
 from typing import Dict, Any, List
+
+from src.core.character_models import BaseCharacterStats  # 新增导入
 from src.utils.character_utils import (
-    calculate_character_stats,
+    calculate_character_base_stats,
     get_default_stats,
     get_default_display_info
 )
 
 
 class CharacterCalculator:
-    """角色计算器 - 单一职责：计算角色相关属性"""
+    """角色计算器 - 适配新架构"""
 
     def __init__(self, loader, config_manager):
         self.loader = loader
@@ -18,54 +20,116 @@ class CharacterCalculator:
         # 缓存计算结果
         self._calculation_cache: Dict[str, Dict[str, Any]] = {}
 
-    def get_character_base_stats(self, character_id: str,
-                                 level: int = 60,
-                                 passive_level: int = 0) -> Dict[str, float]:
-        """获取角色基础属性"""
-        cache_key = f"{character_id}_{level}_{passive_level}"
+    def get_character_detailed_stats(self, character_id: str,
+                                   level: int = 60,
+                                   extra_level: int = 0) -> Dict[str, Any]:
+        """获取角色详细属性 - 使用新架构"""
+        cache_key = f"{character_id}_{level}_{extra_level}_detailed"
 
-        # 检查缓存
         if cache_key in self._calculation_cache:
-            print(f"缓存命中: {cache_key}")
             return self._calculation_cache[cache_key]
 
         try:
-            # 加载角色数据
-            character_data = self.loader.load_character(character_id)
-            if not character_data:
-                print(f"角色数据不存在: {character_id}")
-                return get_default_stats()
+            # 加载角色数据 (现在返回RawCharacterData)
+            raw_data = self.loader.load_character(character_id)
+            if not raw_data:
+                return self._get_default_detailed_stats()
 
-            # 使用工具函数计算属性
-            stats = calculate_character_stats(character_data, level, self.config_manager.character.stat_config)
+            # 计算基础属性 - 返回BaseCharacterStats对象
+            base_stats = calculate_character_base_stats(
+                raw_data, level, extra_level, self.config_manager.character.stat_config
+            )
 
-            # 缓存结果
-            self._calculation_cache[cache_key] = stats
+            # 构建有序输出
+            ordered_attributes = self._build_ordered_attributes(character_id, base_stats)
 
-            print(f"计算角色属性成功: {character_id}, 等级: {level}")
-            return stats
+            result = {
+                "character_info": self.get_character_display_info(character_id),
+                "attributes": ordered_attributes,
+                "base_stats": base_stats,  # 使用BaseCharacterStats对象
+                "level": level,
+                "extra_level": extra_level
+            }
+
+            self._calculation_cache[cache_key] = result
+            return result
 
         except Exception as e:
-            print(f"计算角色属性失败: {character_id}, 错误: {e}")
-            return get_default_stats()
+            print(f"获取角色详细属性失败: {character_id}, 错误: {e}")
+            return self._get_default_detailed_stats()
+
+    def _format_attribute_value(self, attr_key: str, value: float) -> str:
+        """格式化属性值显示"""
+        if attr_key in ["CRIT_Rate", "CRIT_DMG", "PEN_Ratio"]:
+            return f"{value:.1%}"
+        elif attr_key in ["HP", "ATK", "DEF", "Impact",
+                          "Anomaly_Mastery", "Anomaly_Proficiency", "Sheer_Force"]:
+            return f"{value:,.0f}"
+        elif attr_key in ["Energy_Regen", "Automatic_Adrenaline_Accumulation"]:
+            return f"{value:.1f}"
+        else:
+            return str(value)
+
+    def _build_ordered_attributes(self, character_id: str, base_stats: BaseCharacterStats) -> Dict[str, Any]:
+        """构建有序属性显示"""
+        output_config = self.config_manager.character.attribute_output_config
+        display_info = self.get_character_display_info(character_id)
+        weapon_type = display_info.get("weapon_type", "")
+        output_order = output_config.get_output_order(weapon_type)
+
+        ordered_attributes = {}
+        for attr_key in output_order:
+            value = getattr(base_stats, attr_key, 0)
+            ordered_attributes[attr_key] = {
+                "value": value,
+                "display_name": output_config.get_display_name(attr_key),
+                "is_base_attribute": output_config.is_base_attribute(attr_key),
+                "formatted_value": self._format_attribute_value(attr_key, value)
+            }
+
+        return ordered_attributes
+
+    def _get_default_detailed_stats(self) -> Dict[str, Any]:
+        """获取默认详细属性"""
+        output_config = self.config_manager.character.attribute_output_config
+        default_order = output_config.DEFAULT_OUTPUT_ORDER
+        base_stats = get_default_stats()
+
+        ordered_stats = {}
+        for attr_key in default_order:
+            if attr_key in base_stats:
+                ordered_stats[attr_key] = {
+                    "value": base_stats[attr_key],
+                    "display_name": output_config.get_display_name(attr_key),
+                    "is_base_attribute": output_config.is_base_attribute(attr_key),
+                    "formatted_value": self._format_attribute_value(attr_key, base_stats[attr_key])
+                }
+
+        return {
+            "character_info": get_default_display_info(""),
+            "attributes": ordered_stats,
+            "base_stats": None,
+            "level": 1,
+            "extra_level": 0
+        }
 
     def get_character_display_info(self, character_id: str) -> Dict[str, str]:
         """获取角色显示信息"""
         try:
-            character_data = self.loader.load_character(character_id)
-            if not character_data:
+            raw_data = self.loader.load_character(character_id)
+            if not raw_data:
                 return get_default_display_info(character_id)
 
             return {
                 "id": character_id,
-                "name": character_data.get("Name", "未知角色"),
-                "code_name": character_data.get("CodeName", "未知"),
-                "rarity": str(character_data.get("Rarity", 4)),
+                "name": raw_data.Name,
+                "code_name": raw_data.CodeName,
+                "rarity": str(raw_data.Rarity),
                 "weapon_type": self.config_manager.character.display_config.get_weapon_display(
-                    character_data.get("WeaponType", {})
+                    raw_data.WeaponType
                 ),
                 "element_type": self.config_manager.character.display_config.get_element_display(
-                    character_data.get("ElementType", {})
+                    raw_data.ElementType
                 )
             }
 
@@ -84,14 +148,6 @@ class CharacterCalculator:
             print(f"获取角色列表失败: {e}")
             return []
 
-    def preload_character_data(self, character_id: str):
-        """预加载角色数据"""
-        try:
-            self.loader.preload_character(character_id)
-            print(f"预加载角色数据: {character_id}")
-        except Exception as e:
-            print(f"预加载角色数据失败: {character_id}, 错误: {e}")
-
     def clear_cache(self, character_id: str = None):
         """清空缓存"""
         if character_id:
@@ -106,7 +162,7 @@ class CharacterCalculator:
             print("清空所有缓存")
 
 
-# 全局实例管理
+# 全局实例管理 (保持不变)
 _character_calculator_instance = None
 
 

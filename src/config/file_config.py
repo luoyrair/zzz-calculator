@@ -21,7 +21,8 @@ class FileConfig(BaseConfig):
             self.base_dir,
             self.characters_dir,
             self.backup_dir,
-            self.cache_dir
+            self.cache_dir,
+            self.equipment_dir
         ]
 
         for directory in directories:
@@ -31,6 +32,11 @@ class FileConfig(BaseConfig):
     def characters_dir(self) -> Path:
         """角色数据目录"""
         return self.base_dir / "characters"
+
+    @property
+    def equipment_dir(self) -> Path:
+        """装备数据目录"""
+        return self.base_dir / "equipment"
 
     @property
     def backup_dir(self) -> Path:
@@ -48,9 +54,19 @@ class FileConfig(BaseConfig):
         return self.base_dir / "character_ids.json"
 
     @property
+    def equipment_ids_file(self) -> Path:
+        """装备ID列表文件"""
+        return self.base_dir / "equipment_ids.json"
+
+    @property
     def id_name_mapping_file(self) -> Path:
         """ID-名称映射文件"""
         return self.base_dir / "id_name_mapping.json"
+
+    @property
+    def equipment_file(self) -> Path:
+        """装备数据文件"""
+        return self.equipment_dir / "equipment.json"
 
     @property
     def failed_downloads_file(self) -> Path:
@@ -100,6 +116,7 @@ class FileConfig(BaseConfig):
         required_dirs = [
             ("base_dir", self.base_dir),
             ("characters_dir", self.characters_dir),
+            ("equipment_dir", self.equipment_dir),
             ("backup_dir", self.backup_dir),
             ("cache_dir", self.cache_dir)
         ]
@@ -127,10 +144,12 @@ class FileConfig(BaseConfig):
         return {
             "base_dir": str(self.base_dir),
             "characters_dir": str(self.characters_dir),
+            "equipment_dir": str(self.equipment_dir),
             "backup_dir": str(self.backup_dir),
             "cache_dir": str(self.cache_dir),
             "character_ids_file": str(self.character_ids_file),
             "id_name_mapping_file": str(self.id_name_mapping_file),
+            "equipment_file": str(self.equipment_file),
             "failed_downloads_file": str(self.failed_downloads_file)
         }
 

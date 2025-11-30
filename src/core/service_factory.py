@@ -4,7 +4,7 @@ from typing import Optional
 
 from src.config import config_manager
 from .async_loader import CharacterLoader, CharacterManager
-from .cached_calculator import CalculatorFactory
+from .calculator import GearCalculator
 from .character_calculator import CharacterCalculator
 
 
@@ -44,7 +44,7 @@ class ServiceFactory:
     def gear_calculator(self):
         """获取驱动盘计算器"""
         if self._gear_calculator is None:
-            self._gear_calculator = CalculatorFactory.create_default_calculator(
+            self._gear_calculator = GearCalculator(
                 config_manager.gear
             )
         return self._gear_calculator

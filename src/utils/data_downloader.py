@@ -2,11 +2,26 @@
 """重构后的数据下载器"""
 import json
 import time
+import re
 from typing import List, Tuple, Optional, Dict, Any
 
 import requests
 
 from src.config import config_manager
+
+
+def remove_html_tags(text):
+    """去除HTML标签和方括号标签"""
+    if not isinstance(text, str):
+        return text
+
+    # 去除颜色标签
+    text = re.sub(r'<color=.*?>', '', text)
+    text = re.sub(r'</color>', '', text)
+    # 去除其他HTML标签
+    text = re.sub(r'<.*?>', '', text)
+
+    return text
 
 
 class DataDownloader:
@@ -18,7 +33,8 @@ class DataDownloader:
             "base_url": "https://api.hakush.in/zzz/data",
             "endpoints": {
                 "character_list": "/character.json",
-                "character_data": "/zh/character/{character_id}.json"
+                "character_data": "/zh/character/{character_id}.json",
+                "equipment_data": "/equipment.json"
             },
             "request_delay": 0.1,
             "timeout": 10
@@ -67,6 +83,50 @@ class DataDownloader:
         except Exception as e:
             print(f"   ❌ 下载失败: {e}")
             return False
+
+    def download_equipment_data(self) -> Optional[List[str]]:
+        """下载并保存驱动盘数据"""
+        print("🎮 开始下载驱动盘数据...")
+
+        url = self._build_url("equipment_data")
+        print(f"🔗 请求URL: {url}")
+
+        try:
+            response = self._session.get(url, timeout=self.api_config["timeout"])
+            response.raise_for_status()
+
+            data = response.json()
+
+            # 提取所有驱动盘ID
+            equipment_ids = list(data.keys())
+
+            # 清理数据中的HTML标签
+            equipment_data = {}
+            for equipment_id in equipment_ids:
+                equipment_data[equipment_id] = data[equipment_id]["CHS"]
+                for k, v in equipment_data[equipment_id].items():
+                    equipment_data[equipment_id][k] = remove_html_tags(v)
+
+            # 保存清理后的装备数据
+            with open(self.file_config.equipment_file, "w", encoding="utf-8") as f:
+                json.dump(equipment_data, f, ensure_ascii=False, indent=2)
+
+            # 保存装备ID列表
+            with open(self.file_config.equipment_ids_file, "w", encoding="utf-8") as f:
+                json.dump(equipment_ids, f, ensure_ascii=False, indent=2)
+
+            # 在控制台显示ID列表
+            print("🎮 驱动盘ID列表:")
+            for equip_id in equipment_ids:
+                equip_name = equipment_data[equip_id].get("name", "未知装备")
+                print(f"  - {equip_id}: {equip_name}")
+
+            print(f"✅ 驱动盘数据下载成功: {len(equipment_ids)} 个装备")
+            return equipment_ids
+
+        except Exception as e:
+            print(f"❌ 驱动盘数据下载失败: {e}")
+            return None
 
     def batch_download_characters(self, character_ids: List[str] = None) -> Tuple[int, List[str]]:
         """批量下载角色数据"""
@@ -243,15 +303,23 @@ class DownloadService:
         result = {
             "character_list_success": False,
             "character_data_success": False,
+            "equipment_data_success": False,
             "total_characters": 0,
             "downloaded_count": 0,
-            "failed_count": 0
+            "failed_count": 0,
+            "equipment_count": 0
         }
 
         # 测试连接
         if not self.downloader.test_connection():
             print("❌ 网络连接失败，无法下载数据")
             return result
+
+        # 下载装备数据
+        equipment_ids = self.downloader.download_equipment_data()
+        if equipment_ids:
+            result["equipment_data_success"] = True
+            result["equipment_count"] = len(equipment_ids)
 
         # 下载角色列表
         character_data = self.downloader.download_character_list()
@@ -271,33 +339,64 @@ class DownloadService:
 
         return result
 
+    def download_equipment_only(self) -> bool:
+        """仅下载装备数据"""
+        equipment_ids = self.downloader.download_equipment_data()
+        return equipment_ids is not None
+
     def check_data_completeness(self) -> Dict[str, Any]:
         """检查数据完整性"""
         try:
             character_ids = self.downloader._load_character_ids()
-            if not character_ids:
-                return {"status": "missing_ids", "completion_rate": 0}
+            equipment_ids = self._load_equipment_ids()
 
-            existing_count = 0
-            missing_files = []
+            character_stats = {
+                "total": len(character_ids) if character_ids else 0,
+                "existing": 0,
+                "missing": []
+            }
 
-            for char_id in character_ids:
-                if self.downloader.file_config.character_file_exists(char_id):
-                    existing_count += 1
-                else:
-                    missing_files.append(char_id)
+            equipment_stats = {
+                "total": len(equipment_ids) if equipment_ids else 0,
+                "existing": 0,
+                "missing": []
+            }
 
-            total = len(character_ids)
-            completion_rate = existing_count / total * 100 if total > 0 else 0
+            # 检查角色数据完整性
+            if character_ids:
+                for char_id in character_ids:
+                    if self.downloader.file_config.character_file_exists(char_id):
+                        character_stats["existing"] += 1
+                    else:
+                        character_stats["missing"].append(char_id)
+
+            # 检查装备数据完整性
+            if equipment_ids:
+                equipment_stats["existing"] = 1 if self.downloader.file_config.equipment_mapping_file.exists() else 0
+
+            character_completion = character_stats["existing"] / character_stats["total"] * 100 if character_stats["total"] > 0 else 0
+            equipment_completion = equipment_stats["existing"] / equipment_stats["total"] * 100 if equipment_stats["total"] > 0 else 0
+            overall_completion = (character_completion + equipment_completion) / 2 if character_stats["total"] > 0 and equipment_stats["total"] > 0 else 0
 
             return {
-                "status": "complete" if completion_rate == 100 else "incomplete",
-                "total_characters": total,
-                "existing_count": existing_count,
-                "missing_count": len(missing_files),
-                "completion_rate": completion_rate,
-                "missing_files": missing_files
+                "status": "complete" if overall_completion == 100 else "incomplete",
+                "overall_completion_rate": overall_completion,
+                "characters": character_stats,
+                "equipment": equipment_stats,
+                "character_completion_rate": character_completion,
+                "equipment_completion_rate": equipment_completion
             }
 
         except Exception as e:
-            return {"status": "error", "error": str(e), "completion_rate": 0}
+            return {"status": "error", "error": str(e), "overall_completion_rate": 0}
+
+    def _load_equipment_ids(self) -> List[str]:
+        """加载装备ID列表"""
+        try:
+            with open(self.downloader.file_config.equipment_ids_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return []
+        except Exception as e:
+            print(f"❌ 加载装备ID失败: {e}")
+            return []

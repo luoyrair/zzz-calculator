@@ -1,14 +1,15 @@
 # src/ui/gear_slot.py
-"""重构后的驱动盘槽位组件"""
+"""驱动盘槽位组件 - 适配新架构"""
 import tkinter as tk
 from tkinter import ttk
 from typing import List, Dict, Any
 
 from src.config import config_manager
+from src.core.gear_models import GearPiece, GearSubAttribute
 
 
 class GearSlotWidget(ttk.LabelFrame):
-    """单个驱动盘槽位组件 - 单一职责：管理单个驱动盘配置"""
+    """单个驱动盘槽位组件 - 新架构"""
 
     def __init__(self, parent, slot_number: int, app):
         super().__init__(parent, text=f"驱动盘 {slot_number}")
@@ -17,6 +18,8 @@ class GearSlotWidget(ttk.LabelFrame):
 
         # 存储子组件引用
         self.sub_widgets: List[Dict[str, Any]] = []
+
+        self.total_enhancement_limit = 5
 
         self.setup_ui()
 
@@ -133,22 +136,22 @@ class GearSlotWidget(ttk.LabelFrame):
         slot_config = config_manager.gear.slot_config
         attribute_config = config_manager.gear.attribute_config
 
-        # 获取当前槽位的主属性英文键
-        english_keys = slot_config.get_main_attributes_for_slot(self.slot_number + 1)
+        # 获取当前槽位的主属性gear_key
+        gear_keys = slot_config.get_main_attributes_for_slot(self.slot_number + 1)
 
         # 转换为中文显示名称
-        return [attribute_config.get_display_name(key) for key in english_keys]
+        return [attribute_config.get_display_name(key) for key in gear_keys]
 
     def get_available_sub_attributes(self) -> List[str]:
         """获取可用的副属性列表（中文显示名称）"""
         attribute_config = config_manager.gear.attribute_config
         growth_config = config_manager.gear.growth_config
 
-        # 获取所有副属性的英文键
-        english_keys = list(growth_config.SUB_ATTR_GROWTH.keys())
+        # 获取所有副属性的gear_key
+        gear_keys = list(growth_config.sub_attr_growth.keys())
 
         # 转换为中文显示名称
-        return [attribute_config.get_display_name(key) for key in english_keys]
+        return [attribute_config.get_display_name(key) for key in gear_keys]
 
     def get_filtered_sub_attributes(self) -> List[str]:
         """获取过滤后的副属性列表（排除当前主属性）"""
@@ -156,8 +159,8 @@ class GearSlotWidget(ttk.LabelFrame):
         if not current_main_display:
             return self.get_available_sub_attributes()
 
-        # 获取当前主属性的英文键
-        current_main_english = config_manager.gear.attribute_config.get_english_key_from_display(
+        # 获取当前主属性的gear_key
+        current_main_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(
             current_main_display
         )
 
@@ -166,9 +169,9 @@ class GearSlotWidget(ttk.LabelFrame):
         growth_config = config_manager.gear.growth_config
         attribute_config = config_manager.gear.attribute_config
 
-        for eng_key in growth_config.SUB_ATTR_GROWTH.keys():
-            if eng_key != current_main_english:
-                available_sub_attrs.append(attribute_config.get_display_name(eng_key))
+        for gear_key in growth_config.sub_attr_growth.keys():
+            if gear_key != current_main_gear_key:
+                available_sub_attrs.append(attribute_config.get_display_name(gear_key))
 
         return available_sub_attrs
 
@@ -192,27 +195,74 @@ class GearSlotWidget(ttk.LabelFrame):
         display_name = widget["combo_var"].get()
 
         if not display_name:
-            # 清空选择
             widget["value_label"].config(text="0")
-            self.update_gear_data("sub", sub_index, "", 0)
+            self.update_gear_data()
             return
 
-        # 将中文显示名称转换回英文键
-        attr_name = config_manager.gear.attribute_config.get_english_key_from_display(display_name)
-        enhancement_count = widget["spin_var"].get()
+        # 将中文显示名称转换回gear_key
+        gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(display_name)
+        new_enhancement_count = widget["spin_var"].get()
 
-        if attr_name and enhancement_count >= 0:
-            # 计算属性值
-            value = self.app.gear_calculator.calculate_sub_attribute(
-                attr_name, enhancement_count
-            )
+        # 检查总强化次数限制
+        current_total = self.calculate_total_enhancement()
+        old_value = self.get_current_enhancement_count(sub_index)
+
+        if current_total - old_value + new_enhancement_count > self.total_enhancement_limit:
+            max_allowed = self.total_enhancement_limit - (current_total - old_value)
+            if max_allowed < 0:
+                max_allowed = 0
+            widget["spin_var"].set(max_allowed)
+            new_enhancement_count = max_allowed
+
+        if gear_key and new_enhancement_count >= 0:
+            # 计算属性值 - 直接使用GrowthConfig
+            value = self.calculate_sub_attribute_value(gear_key, new_enhancement_count)
 
             # 更新显示
-            display_value = self.format_attribute_value(attr_name, value)
+            display_value = self.format_attribute_value(gear_key, value)
             widget["value_label"].config(text=display_value)
 
             # 更新数据
-            self.update_gear_data("sub", sub_index, attr_name, value)
+            self.update_gear_data()
+
+    def calculate_main_attribute_value(self, gear_key: str, level: int) -> float:
+        """计算主属性值 - 使用GrowthConfig"""
+        growth_config = config_manager.gear.growth_config
+        growth_data = growth_config.get_main_attribute_growth(gear_key)
+
+        if not growth_data:
+            return 0.0
+
+        base_value = growth_data.get("base", 0)
+        growth_rate = growth_data.get("growth", 0)
+
+        return base_value + growth_rate * level
+
+    def calculate_sub_attribute_value(self, gear_key: str, enhancement_count: int) -> float:
+        """计算副属性值 - 使用GrowthConfig"""
+        growth_config = config_manager.gear.growth_config
+        growth_data = growth_config.get_sub_attribute_growth(gear_key)
+
+        if not growth_data:
+            return 0.0
+
+        base_value = growth_data.get("base", 0)
+        growth_rate = growth_data.get("growth", 0)
+
+        return base_value + growth_rate * enhancement_count
+
+    def calculate_total_enhancement(self) -> int:
+        """计算当前总强化次数"""
+        total = 0
+        for widget in self.sub_widgets:
+            total += widget["spin_var"].get()
+        return total
+
+    def get_current_enhancement_count(self, index: int) -> int:
+        """获取指定副属性当前的强化次数"""
+        if 0 <= index < len(self.sub_widgets):
+            return self.sub_widgets[index]["spin_var"].get()
+        return 0
 
     def update_main_attribute_value(self):
         """更新主属性值显示和计算"""
@@ -220,23 +270,23 @@ class GearSlotWidget(ttk.LabelFrame):
 
         if not display_name:
             self.main_value_label.config(text="值: 0")
-            self.update_gear_data("main", 0, "", 0)
+            self.update_gear_data()
             return
 
-        # 将中文显示名称转换回英文键
-        attr_name = config_manager.gear.attribute_config.get_english_key_from_display(display_name)
+        # 将中文显示名称转换回gear_key
+        gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(display_name)
         global_level = self.app.main_enhance_level.get()
 
-        if attr_name:
-            # 计算属性值
-            value = self.app.gear_calculator.calculate_main_attribute(attr_name, global_level)
+        if gear_key:
+            # 计算属性值 - 直接使用GrowthConfig
+            value = self.calculate_main_attribute_value(gear_key, global_level)
 
             # 更新显示
-            display_value = self.format_attribute_value(attr_name, value)
+            display_value = self.format_attribute_value(gear_key, value)
             self.main_value_label.config(text=f"值: {display_value}")
 
             # 更新数据
-            self.update_gear_data("main", 0, attr_name, value)
+            self.update_gear_data()
 
     def update_sub_attributes_availability(self):
         """更新所有副属性下拉框的可选列表"""
@@ -244,18 +294,18 @@ class GearSlotWidget(ttk.LabelFrame):
         current_main_display = self.main_attr_var.get()
 
         if current_main_display:
-            current_main_english = config_manager.gear.attribute_config.get_english_key_from_display(
+            current_main_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(
                 current_main_display
             )
         else:
-            current_main_english = None
+            current_main_gear_key = None
 
         for widget in self.sub_widgets:
             current_selection = widget["combo_var"].get()
-            current_english = None
+            current_gear_key = None
 
             if current_selection:
-                current_english = config_manager.gear.attribute_config.get_english_key_from_display(
+                current_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(
                     current_selection
                 )
 
@@ -263,34 +313,32 @@ class GearSlotWidget(ttk.LabelFrame):
             widget["combo"]["values"] = available_values
 
             # 如果当前选择的副属性与主属性冲突，清空选择
-            if current_english and current_english == current_main_english:
+            if current_gear_key and current_gear_key == current_main_gear_key:
                 widget["combo_var"].set("")
                 widget["value_label"].config(text="0")
+                self.update_gear_data()
 
-                # 更新数据
-                sub_index = self.sub_widgets.index(widget)
-                self.update_gear_data("sub", sub_index, "", 0)
-
-    def update_gear_data(self, attr_type: str, sub_index: int, attr_name: str, value: float):
+    def update_gear_data(self):
         """更新驱动盘数据"""
-        # 确保空字符串被正确处理
-        effective_attr_name = attr_name if attr_name else ""
-        effective_value = value if attr_name else 0.0
-
-        self.app.update_gear_data(
-            self.slot_number, attr_type, sub_index, effective_attr_name, effective_value
-        )
+        self.app.update_gear_data()
 
     def notify_app_update(self):
         """通知应用更新计算"""
         self.app.update_calculation()
 
-    def format_attribute_value(self, attr_name: str, value: float) -> str:
+    def format_attribute_value(self, gear_key: str, value: float) -> str:
         """格式化属性值显示"""
-        if (attr_name.endswith('_PERCENT') or
-                'RATE' in attr_name or
-                'DMG' in attr_name or
-                attr_name in ['CRIT_RATE', 'CRIT_DMG', 'PENETRATION', 'ENERGY_REGEN', 'ANOMALY_PROFICIENCY', 'IMPACT']):
+        gear_attr = config_manager.gear.attribute_config.get_gear_attribute(gear_key)
+        if not gear_attr:
+            return f"{value:.0f}"
+
+        # 根据属性值类型格式化显示
+        from src.config.gear_config import AttributeValueType
+        if gear_attr.value_type in [
+            AttributeValueType.PERCENTAGE,
+            AttributeValueType.RATE_PERCENTAGE,
+            AttributeValueType.DMG_BONUS_PERCENTAGE
+        ]:
             return f"{value:.1%}"
         else:
             return f"{value:.0f}"
@@ -308,40 +356,33 @@ class GearSlotWidget(ttk.LabelFrame):
             widget["value_label"].config(text="0")
 
         # 更新数据
-        self.update_gear_data("main", 0, "", 0)
-        for i in range(4):
-            self.update_gear_data("sub", i, "", 0)
+        self.update_gear_data()
 
-        # 通知应用
-        self.notify_app_update()
+    def get_gear_piece(self) -> GearPiece:
+        """获取当前配置对应的GearPiece对象"""
+        main_attr_display = self.main_attr_var.get()
+        main_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(main_attr_display)
+        main_value = self._extract_value_from_label(self.main_value_label.cget("text"))
 
-    def get_current_config(self) -> Dict[str, Any]:
-        """获取当前配置"""
-        config = {
-            "slot_number": self.slot_number + 1,
-            "main_attribute": {
-                "display_name": self.main_attr_var.get(),
-                "english_name": config_manager.gear.attribute_config.get_english_key_from_display(
-                    self.main_attr_var.get()
-                ) if self.main_attr_var.get() else "",
-                "value": self._extract_value_from_label(self.main_value_label.cget("text"))
-            },
-            "sub_attributes": []
-        }
+        sub_attributes = []
+        for widget in self.sub_widgets:
+            sub_display = widget["combo_var"].get()
+            if sub_display:
+                sub_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(sub_display)
+                sub_value = self._extract_value_from_label(widget["value_label"].cget("text"))
+                sub_attributes.append(GearSubAttribute(
+                    gear_key=sub_gear_key,  # 使用gear_key而不是attribute_type
+                    value=sub_value,
+                    is_locked=False
+                ))
 
-        for i, widget in enumerate(self.sub_widgets):
-            sub_config = {
-                "index": i,
-                "display_name": widget["combo_var"].get(),
-                "english_name": config_manager.gear.attribute_config.get_english_key_from_display(
-                    widget["combo_var"].get()
-                ) if widget["combo_var"].get() else "",
-                "enhancement_level": widget["spin_var"].get(),
-                "value": self._extract_value_from_label(widget["value_label"].cget("text"))
-            }
-            config["sub_attributes"].append(sub_config)
-
-        return config
+        return GearPiece(
+            slot_index=self.slot_number,
+            level=self.app.main_enhance_level.get(),
+            main_gear_key=main_gear_key,  # 使用main_gear_key
+            main_value=main_value,
+            sub_attributes=sub_attributes
+        )
 
     def _extract_value_from_label(self, label_text: str) -> float:
         """从标签文本中提取数值"""
@@ -386,7 +427,7 @@ class GearSlotWidget(ttk.LabelFrame):
 
 
 class GearSlotManager:
-    """驱动盘槽位管理器 - 管理所有槽位的协调"""
+    """驱动盘槽位管理器 - 新架构"""
 
     def __init__(self, app):
         self.app = app
@@ -402,14 +443,14 @@ class GearSlotManager:
 
         return self.slot_widgets
 
+    def get_all_gear_pieces(self) -> List[GearPiece]:
+        """获取所有槽位的GearPiece对象"""
+        return [slot.get_gear_piece() for slot in self.slot_widgets]
+
     def reset_all_slots(self):
         """重置所有槽位"""
         for slot_widget in self.slot_widgets:
             slot_widget.reset()
-
-    def get_all_configs(self) -> List[Dict[str, Any]]:
-        """获取所有槽位的配置"""
-        return [slot.get_current_config() for slot in self.slot_widgets]
 
     def validate_configurations(self) -> Dict[str, Any]:
         """验证所有槽位配置的有效性"""
@@ -417,17 +458,17 @@ class GearSlotManager:
         warnings = []
 
         for i, slot in enumerate(self.slot_widgets):
-            config = slot.get_current_config()
+            gear_piece = slot.get_gear_piece()
 
             # 检查主属性冲突
-            main_attr = config["main_attribute"]["english_name"]
-            if main_attr:
-                for sub_attr in config["sub_attributes"]:
-                    if sub_attr["english_name"] == main_attr:
+            main_gear_key = gear_piece.main_gear_key
+            if main_gear_key:
+                for sub_attr in gear_piece.sub_attributes:
+                    if sub_attr.gear_key == main_gear_key:
                         errors.append(f"槽位 {i + 1}: 主属性与副属性冲突")
 
             # 检查无效的属性组合
-            if not self._is_valid_slot_configuration(i + 1, config):
+            if not self._is_valid_slot_configuration(i + 1, gear_piece):
                 warnings.append(f"槽位 {i + 1}: 属性组合可能无效")
 
         return {
@@ -436,13 +477,13 @@ class GearSlotManager:
             "warnings": warnings
         }
 
-    def _is_valid_slot_configuration(self, slot_number: int, config: Dict[str, Any]) -> bool:
+    def _is_valid_slot_configuration(self, slot_number: int, gear_piece: GearPiece) -> bool:
         """检查槽位配置是否有效"""
         slot_config = config_manager.gear.slot_config
         available_main_attrs = slot_config.get_main_attributes_for_slot(slot_number)
 
-        main_attr_english = config["main_attribute"]["english_name"]
-        if main_attr_english and main_attr_english not in available_main_attrs:
+        main_gear_key = gear_piece.main_gear_key
+        if main_gear_key and main_gear_key not in available_main_attrs:
             return False
 
         return True

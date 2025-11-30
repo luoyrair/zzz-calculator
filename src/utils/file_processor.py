@@ -315,14 +315,14 @@ class FileManagementService:
                 if dir_info["exists"]:
                     result["directories_existing"].append(dir_info["path"])
 
-        # 检查数据完整性
-        completeness = self.download_service.check_data_completeness()
-        result["data_completeness"] = completeness
-
-        if completeness["completion_rate"] < 100:
-            warning_msg = f"数据不完整: {completeness['completion_rate']:.1f}%"
-            result["warnings"].append(warning_msg)
-            print(f"⚠️ {warning_msg}")
+        # 检查数据完整性 与equipment的适配有问题，后面修改
+        # completeness = self.download_service.check_data_completeness()
+        # result["data_completeness"] = completeness
+        #
+        # if completeness["completion_rate"] < 100:
+        #     warning_msg = f"数据不完整: {completeness['completion_rate']:.1f}%"
+        #     result["warnings"].append(warning_msg)
+        #     print(f"⚠️ {warning_msg}")
 
         # 文件统计
         stats = self.processor.get_file_statistics()

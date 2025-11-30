@@ -31,19 +31,6 @@ def initialize_application():
         return False
 
     print("✅ 配置初始化完成")
-
-    # # 检查系统状态
-    # status = file_service.get_system_status()
-    #
-    # if status["data_status"]["completion_rate"] < 100:
-    #     print(f"⚠️ 数据不完整: {status['data_status']['completion_rate']:.1f}%")
-    #     if status["network_status"] == "connected":
-    #         print("💡 检测到网络连接，可以下载缺失数据")
-    #     else:
-    #         print("💡 请检查网络连接后下载缺失数据")
-    # else:
-    #     print("✅ 数据完整性检查通过")
-
     return True
 
 

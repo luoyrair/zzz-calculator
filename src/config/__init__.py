@@ -1,13 +1,12 @@
 # src/config/__init__.py
-"""统一配置管理器"""
-from .base_config import BaseConfig
+"""配置管理器 - 新架构"""
 from .character_config import CharacterConfig
 from .gear_config import GearConfig
 from .file_config import FileConfig
 
 
 class ConfigManager:
-    """统一配置管理器"""
+    """配置管理器"""
 
     def __init__(self):
         self.character = CharacterConfig()
@@ -43,19 +42,9 @@ class ConfigManager:
             print(f"❌ 配置初始化失败: {e}")
             return False
 
-    def reload(self) -> bool:
-        """重新加载配置"""
-        self._initialized = False
-        return self.initialize()
-
-    def get_config_summary(self) -> dict:
-        """获取配置摘要"""
-        return {
-            "character": self.character.to_dict(),
-            "gear": self.gear.to_dict(),
-            "file": self.file.to_dict(),
-            "initialized": self._initialized
-        }
+    def validate_all(self) -> bool:
+        """验证所有配置"""
+        return self.character.validate() and self.gear.validate()
 
 
 # 全局配置管理器实例

@@ -1,12 +1,13 @@
-# src/core/async_loader.py (简化版)
-"""重构后的异步加载器"""
+# src/core/async_loader.py
+"""重构后的异步加载器 - 适配新架构"""
 import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 
 from src.config import config_manager
+from src.core.character_models import RawCharacterData  # 新增导入
 
 
 @dataclass
@@ -20,15 +21,15 @@ class LoadResult:
 
 
 class CharacterLoader:
-    """角色数据加载器 - 单一职责"""
+    """角色数据加载器 - 适配新架构"""
 
     def __init__(self, use_async: bool = True):
         self.use_async = use_async
         self.thread_pool = ThreadPoolExecutor(max_workers=3) if use_async else None
-        self._cache: Dict[str, Any] = {}
+        self._cache: Dict[str, RawCharacterData] = {}  # 缓存类型改为RawCharacterData
 
-    def load_character(self, character_id: str, callback: Callable = None) -> Optional[Dict[str, Any]]:
-        """加载角色数据"""
+    def load_character(self, character_id: str, callback: Callable = None) -> Optional[RawCharacterData]:
+        """加载角色数据 - 返回RawCharacterData对象"""
         # 检查缓存
         if character_id in self._cache:
             result = LoadResult(True, self._cache[character_id], "", "", True)
@@ -40,31 +41,51 @@ class CharacterLoader:
 
         if self.use_async and self.thread_pool and callback:
             # 异步加载
-            future = self.thread_pool.submit(self._load_file_sync, file_path)
+            future = self.thread_pool.submit(self._load_file_sync, file_path, character_id)
             future.add_done_callback(lambda f: self._handle_async_result(f, character_id, callback))
             return None
         else:
             # 同步加载
             return self._load_file_sync(file_path, character_id)
 
-    def _load_file_sync(self, file_path: Path, character_id: str = "") -> Optional[Dict[str, Any]]:
-        """同步加载文件"""
+    def _load_file_sync(self, file_path: Path, character_id: str = "") -> Optional[RawCharacterData]:
+        """同步加载文件 - 返回RawCharacterData对象"""
         try:
             if not file_path.exists():
                 return None
 
             with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
+                json_data = json.load(f)
+
+            # 转换为RawCharacterData对象
+            raw_data = self._convert_to_raw_character_data(json_data)
 
             # 缓存数据
             if character_id:
-                self._cache[character_id] = data
+                self._cache[character_id] = raw_data
 
-            return data
+            return raw_data
 
         except Exception as e:
             print(f"加载文件失败 {file_path}: {e}")
             return None
+
+    def _convert_to_raw_character_data(self, json_data: Dict[str, Any]) -> RawCharacterData:
+        """将JSON数据转换为RawCharacterData对象"""
+        return RawCharacterData(
+            Id=json_data.get("Id", 0),
+            Name=json_data.get("Name", ""),
+            CodeName=json_data.get("CodeName", ""),
+            Rarity=json_data.get("Rarity", 4),
+            WeaponType=json_data.get("WeaponType", {}),
+            ElementType=json_data.get("ElementType", {}),
+            SpecialElementType=json_data.get("SpecialElementType", {}),
+            Stats=json_data.get("Stats", {}),
+            Level=json_data.get("Level", {}),
+            ExtraLevel=json_data.get("ExtraLevel", {}),
+            Passive=json_data.get("Passive", {}),
+            FairyRecommend=json_data.get("FairyRecommend", {})
+        )
 
     def _handle_async_result(self, future, character_id: str, callback: Callable):
         """处理异步结果"""
@@ -94,7 +115,7 @@ class CharacterLoader:
 
 
 class CharacterManager:
-    """角色管理器 - 单一职责"""
+    """角色管理器 - 适配新架构"""
 
     def __init__(self):
         self.loader = CharacterLoader()
@@ -111,7 +132,7 @@ class CharacterManager:
         except Exception as e:
             print(f"加载角色映射失败: {e}")
 
-    def get_available_characters(self) -> list:
+    def get_available_characters(self) -> List[Dict[str, str]]:
         """获取可用角色列表"""
         return [{"id": char_id, "name": char_name}
                 for char_id, char_name in self._available_characters.items()]
