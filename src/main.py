@@ -62,7 +62,6 @@ def cleanup():
     """清理资源"""
     # 关闭服务
     service_factory = get_service_factory()
-    service_factory.shutdown()
 
 
 if __name__ == "__main__":

@@ -16,6 +16,10 @@ class GearCalculator:
         self.gear_set_manager: Optional[GearSetManager] = None
         self.attribute_calculator: Optional[AttributeCalculator] = AttributeCalculator(self.gear_config)
 
+        print(f"[DEBUG] GearCalculator 初始化完成")  # 新增调试
+        print(f"[DEBUG] gear_set_manager: {self.gear_set_manager}")  # 新增调试
+        print(f"[DEBUG] attribute_calculator: {self.attribute_calculator}")  # 新增调试
+
     def set_gear_set_manager(self, gear_set_manager: GearSetManager):
         """设置套装效果管理器"""
         self.gear_set_manager = gear_set_manager
@@ -49,13 +53,31 @@ class GearCalculator:
                                set_selection: GearSetSelection,
                                base_stats: BaseCharacterStats) -> GearBonuses:
         """计算驱动盘提供的所有加成"""
+        print(f"[DEBUG] calculate_gear_bonuses 被调用")
+        print(f"[DEBUG] gear_pieces 数量: {len(gear_pieces)}")
+
+        # 确保 attribute_calculator 存在
+        if not self.attribute_calculator:
+            print(f"[ERROR] attribute_calculator 未初始化！")
+            self.attribute_calculator = AttributeCalculator(self.gear_config)
+
         gear_bonuses = GearBonuses(self.attribute_calculator)
+        print(f"[DEBUG] 创建 GearBonuses 实例")
 
+        # 【关键修复】：无论有没有 gear_set_manager，都要计算单个驱动盘属性
+        # 先计算单个驱动盘的属性加成
+        print(f"[DEBUG] 开始计算单个驱动盘属性加成")
+        gear_bonuses.calculate_individual_pieces(gear_pieces, base_stats)
+
+        # 然后计算套装效果（如果有）
         if self.gear_set_manager:
-            gear_bonuses.calculate_from_gear_set(
-                gear_pieces, set_selection, self.gear_set_manager, base_stats
-            )
+            print(f"[DEBUG] 调用 calculate_set_bonuses")
+            set_bonuses = self.gear_set_manager.get_set_bonuses(set_selection)
+            gear_bonuses.merge(set_bonuses)
+        else:
+            print(f"[WARNING] gear_set_manager 未设置，跳过套装效果计算")
 
+        print(f"[DEBUG] 计算完成，总加成 HP: {gear_bonuses.HP}, ATK: {gear_bonuses.ATK}")
         return gear_bonuses
 
     def calculate_final_stats(self, base_stats: BaseCharacterStats,
@@ -64,15 +86,17 @@ class GearCalculator:
         # 创建FinalCharacterStats对象，继承基础属性
         final_stats = FinalCharacterStats()
 
-        # 复制基础属性到最终属性 - 使用正确的方式
+        # 复制基础属性到最终属性
         self._copy_base_stats(base_stats, final_stats)
 
         # 设置装备加成
         final_stats.gear_bonuses = gear_bonuses
 
-        # 应用装备加成到最终属性
+        # 【确保这行代码存在并执行】：应用装备加成到最终属性
         final_stats.apply_gear_bonuses()
 
+        print(f"[DEBUG] 应用加成前 ATK: {base_stats.ATK}")
+        print(f"[DEBUG] 应用加成后 ATK: {final_stats.ATK}")
         return final_stats
 
     def _copy_base_stats(self, source: BaseCharacterStats, target: FinalCharacterStats):
@@ -90,10 +114,14 @@ class GearCalculator:
                                  gear_pieces: List[GearPiece],
                                  set_selection: GearSetSelection) -> FinalCharacterStats:
         """完整的属性计算流程"""
+        print(f"[DEBUG] 开始完整计算...")
         # 1. 计算驱动盘加成
         gear_bonuses = self.calculate_gear_bonuses(gear_pieces, set_selection, base_stats)
+        print(f"[DEBUG] 计算出的总装备加成:")
+        print(f"  ATK: {gear_bonuses.ATK}")
+        print(f"  HP: {gear_bonuses.HP}")
+        print(f"  CRIT_Rate: {gear_bonuses.CRIT_Rate}")
 
         # 2. 计算最终属性
         final_stats = self.calculate_final_stats(base_stats, gear_bonuses)
-
         return final_stats

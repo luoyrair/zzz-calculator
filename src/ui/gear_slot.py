@@ -177,13 +177,18 @@ class GearSlotWidget(ttk.LabelFrame):
 
     def on_main_attr_changed(self, event=None):
         """主属性改变事件处理"""
-        # 更新主属性值显示
+        print(f"[DEBUG] 槽位 {self.slot_number + 1} 主属性改变事件触发")  # 调试
+
+        # 1. 更新主属性值显示
         self.update_main_attribute_value()
 
-        # 更新副属性下拉框的可选列表
+        # 2. 更新副属性下拉框的可选列表
         self.update_sub_attributes_availability()
 
-        # 通知应用更新数据
+        # 3. 【关键修复】立即更新驱动盘数据，并通知应用
+        self.update_gear_data()
+
+        # 4. 通知应用更新最终计算
         self.notify_app_update()
 
     def on_sub_attr_changed(self, sub_index: int):
@@ -267,9 +272,11 @@ class GearSlotWidget(ttk.LabelFrame):
     def update_main_attribute_value(self):
         """更新主属性值显示和计算"""
         display_name = self.main_attr_var.get()
+        print(f"[DEBUG] update_main_attribute_value: 显示名称='{display_name}'")  # 调试
 
         if not display_name:
             self.main_value_label.config(text="值: 0")
+            print(f"[DEBUG] 显示名称为空，重置值显示")  # 调试
             self.update_gear_data()
             return
 
@@ -277,15 +284,24 @@ class GearSlotWidget(ttk.LabelFrame):
         gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(display_name)
         global_level = self.app.main_enhance_level.get()
 
+        print(f"[DEBUG] 转换结果: 显示名='{display_name}' -> gear_key='{gear_key}'")  # 调试
+        print(f"[DEBUG] 全局强化等级: {global_level}")  # 调试
+
         if gear_key:
-            # 计算属性值 - 直接使用GrowthConfig
+            # 计算属性值
             value = self.calculate_main_attribute_value(gear_key, global_level)
 
             # 更新显示
             display_value = self.format_attribute_value(gear_key, value)
             self.main_value_label.config(text=f"值: {display_value}")
 
+            print(f"[DEBUG] 计算属性值: {value} -> 显示格式: {display_value}")  # 调试
+
             # 更新数据
+            self.update_gear_data()
+        else:
+            print(f"[ERROR] 无法找到显示名 '{display_name}' 对应的gear_key")
+            self.main_value_label.config(text="值: 0")
             self.update_gear_data()
 
     def update_sub_attributes_availability(self):
@@ -361,28 +377,41 @@ class GearSlotWidget(ttk.LabelFrame):
     def get_gear_piece(self) -> GearPiece:
         """获取当前配置对应的GearPiece对象"""
         main_attr_display = self.main_attr_var.get()
+        print(f"[DEBUG] get_gear_piece 调用:")  # 调试
+        print(f"  槽位: {self.slot_number + 1}")  # 调试
+        print(f"  主属性显示名: '{main_attr_display}'")  # 调试
+
         main_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(main_attr_display)
+        print(f"  转换的gear_key: '{main_gear_key}'")  # 调试
+
         main_value = self._extract_value_from_label(self.main_value_label.cget("text"))
+        print(f"  标签文本: '{self.main_value_label.cget('text')}'")  # 调试
+        print(f"  提取的数值: {main_value}")  # 调试
 
         sub_attributes = []
-        for widget in self.sub_widgets:
+        for i, widget in enumerate(self.sub_widgets):
             sub_display = widget["combo_var"].get()
             if sub_display:
                 sub_gear_key = config_manager.gear.attribute_config.get_gear_key_by_display(sub_display)
                 sub_value = self._extract_value_from_label(widget["value_label"].cget("text"))
                 sub_attributes.append(GearSubAttribute(
-                    gear_key=sub_gear_key,  # 使用gear_key而不是attribute_type
+                    gear_key=sub_gear_key,
                     value=sub_value,
                     is_locked=False
                 ))
+                print(f"  副属性{i}: 显示名='{sub_display}', gear_key='{sub_gear_key}', 值={sub_value}")  # 调试
 
-        return GearPiece(
+        gear_piece = GearPiece(
             slot_index=self.slot_number,
             level=self.app.main_enhance_level.get(),
-            main_gear_key=main_gear_key,  # 使用main_gear_key
+            main_gear_key=main_gear_key,
             main_value=main_value,
             sub_attributes=sub_attributes
         )
+
+        print(
+            f"  生成的GearPiece: main_gear_key='{gear_piece.main_gear_key}', main_value={gear_piece.main_value}")  # 调试
+        return gear_piece
 
     def _extract_value_from_label(self, label_text: str) -> float:
         """从标签文本中提取数值"""

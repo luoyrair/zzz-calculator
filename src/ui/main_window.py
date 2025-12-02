@@ -5,8 +5,9 @@ from tkinter import ttk
 from typing import List, Optional
 
 from src.core.service_factory import get_service_factory
-from src.core.character_models import BaseCharacterStats, RawCharacterData
+from src.core.character_models import BaseCharacterStats
 from src.core.gear_models import GearPiece, GearSetSelection
+from src.services.character_service import CharacterService
 from src.ui.character_panel import CharacterPanel
 from src.ui.gear_slot import GearSlotWidget, GearSlotManager
 
@@ -22,16 +23,17 @@ class MainWindow:
 
         # 初始化服务
         self.service_factory = get_service_factory()
-        self.character_loader = self.service_factory.character_loader
+
+        # 使用新的服务
+        self.character_service: Optional[CharacterService] = None
         self.character_manager = self.service_factory.character_manager
         self.gear_calculator = self.service_factory.gear_calculator
-        self.character_calculator = self.service_factory.character_calculator
 
         # 当前状态
-        self.current_character_data: Optional[RawCharacterData] = None
         self.current_base_stats: Optional[BaseCharacterStats] = None
         self.gear_pieces: List[GearPiece] = [GearPiece(i) for i in range(6)]
         self.gear_set_selection = GearSetSelection("4+2", [1, 2])
+        self.gear_widgets = []
 
         # UI变量
         self.character_level = tk.IntVar(value=60)
@@ -82,8 +84,8 @@ class MainWindow:
         right_frame.rowconfigure(0, weight=1)
 
         # 角色配置选项卡
-        character_tab = CharacterConfigTab(notebook, self)
-        notebook.add(character_tab, text="角色配置")
+        self.character_tab = CharacterConfigTab(notebook, self)
+        notebook.add(self.character_tab, text="角色配置")
 
         # 驱动盘配置选项卡
         gear_tab = GearConfigTab(notebook, self)
@@ -106,13 +108,16 @@ class MainWindow:
         self.status_label.pack(fill='x', padx=5, pady=2)
 
     def initialize_application(self):
-        """初始化应用程序"""
+        """初始化应用程序 - 适配新服务"""
         try:
             # 初始化配置
             from src.config import config_manager
             if not config_manager.initialize():
                 self.show_status("配置初始化失败", "red")
                 return
+
+            # 初始化服务
+            self.character_service = self.service_factory.character_service
 
             self.show_status("配置加载成功", "green")
 
@@ -125,11 +130,12 @@ class MainWindow:
             traceback.print_exc()
 
     def load_first_character(self):
-        """加载第一个可用角色"""
+        """加载第一个可用角色 - 适配新服务"""
         try:
             characters = self.character_manager.get_available_characters()
             if characters:
                 first_character = characters[0]
+                self.character_tab.character_var.set(first_character["name"])
                 self.character_panel.load_character_by_name(first_character["name"])
                 self.show_status(f"已加载角色: {first_character['name']}", "green")
             else:
@@ -138,26 +144,46 @@ class MainWindow:
             self.show_status(f"加载角色失败: {str(e)}", "red")
 
     def update_calculation(self):
-        """更新计算"""
+        """更新计算 - 适配新服务"""
         try:
             if not self.current_base_stats:
                 self.show_status("请先选择角色", "orange")
                 return
 
-            # 获取所有驱动盘配置
+            # 【新增调试点1】：检查驱动盘数据
             gear_pieces = self.get_all_gear_pieces()
+            print(f"[DEBUG] 获取到 {len(gear_pieces)} 个驱动盘配置:")
+            for i, piece in enumerate(gear_pieces):
+                print(
+                    f"  槽位{i}: 主属性={piece.main_gear_key}, 值={piece.main_value}, 副属性数={len(piece.sub_attributes)}")
 
-            # 使用新架构计算最终属性
-            final_stats = self.gear_calculator.calculate_complete_stats(
-                self.current_base_stats,
-                gear_pieces,
-                self.gear_set_selection
-            )
+            if not self.gear_calculator:
+                print(f"[ERROR] gear_calculator 不存在！")
+                self.show_status("计算器未初始化", "red")
+                return
 
-            # 更新显示
-            self.character_panel.update_final_stats_display(final_stats)
-            self.show_status("计算完成", "green")
+            print(f"[DEBUG] 准备调用 gear_calculator.calculate_complete_stats")  # 新增调试
+            print(f"[DEBUG] gear_calculator 类型: {type(self.gear_calculator)}")  # 新增调试
 
+            # 计算最终属性
+            if self.character_panel.current_base_stats:
+                # 【新增调试点2】：检查计算器输入
+                print(f"[DEBUG] 传入基础属性 ATK: {self.character_panel.current_base_stats.ATK}")
+                print(f"[DEBUG] 传入套装选择: {self.gear_set_selection}")
+
+                final_stats = self.gear_calculator.calculate_complete_stats(
+                    self.character_panel.current_base_stats,
+                    gear_pieces,
+                    self.gear_set_selection
+                )
+
+                # 【新增调试点3】：检查计算结果
+                print(f"[DEBUG] 计算完成。最终属性 ATK: {final_stats.ATK}")
+                print(f"[DEBUG] 装备加成 ATK: {getattr(final_stats.gear_bonuses, 'ATK', 0)}")
+
+                # 更新显示
+                self.character_panel.update_final_stats_display(final_stats)
+                self.show_status("计算完成", "green")
         except Exception as e:
             error_msg = f"计算错误: {str(e)}"
             self.show_status(error_msg, "red")
@@ -166,14 +192,17 @@ class MainWindow:
             traceback.print_exc()
 
     def get_all_gear_pieces(self) -> List[GearPiece]:
-        """获取所有驱动盘配置"""
+        """获取所有驱动盘配置 - 保持不变"""
         if hasattr(self, 'gear_widgets'):
             return [widget.get_gear_piece() for widget in self.gear_widgets]
         return self.gear_pieces
 
-    def set_current_character_data(self, character_data: RawCharacterData):
-        """设置当前角色数据"""
-        self.current_character_data = character_data
+    def set_current_base_stats(self, base_stats: BaseCharacterStats):
+        """设置当前基础属性"""
+        self.current_base_stats = base_stats
+        # 同时更新到角色面板
+        if hasattr(self, 'character_panel'):
+            self.character_panel.current_base_stats = base_stats
 
     def update_gear_data(self):
         """更新驱动盘数据"""
@@ -191,6 +220,7 @@ class CharacterConfigTab(ttk.Frame):
         super().__init__(parent)
         self.main_window = main_window
         self.current_character_id = ""
+        self.character_var = tk.StringVar()
 
         self.setup_ui()
 
@@ -219,7 +249,6 @@ class CharacterConfigTab(ttk.Frame):
         characters = self.main_window.character_manager.get_available_characters()
         character_names = [char["name"] for char in characters]
 
-        self.character_var = tk.StringVar()
         self.character_combo = ttk.Combobox(
             selection_frame,
             textvariable=self.character_var,
@@ -273,13 +302,14 @@ class CharacterConfigTab(ttk.Frame):
         extra_combo.bind('<<ComboboxSelected>>', self.on_config_changed)
 
     def on_character_selected(self, event):
-        """角色选择事件"""
+        """角色选择事件 - 适配新服务"""
         character_name = self.character_var.get()
         if character_name:
             character_id = self.main_window.character_manager.get_character_id_by_name(character_name)
             if character_id:
                 self.current_character_id = character_id
-                self._set_character_data(character_id)
+
+                # 使用角色面板加载角色
                 self.main_window.character_panel.load_character_by_name(character_name)
                 self.main_window.show_status(f"已选择: {character_name}", "green")
 
@@ -301,12 +331,13 @@ class CharacterConfigTab(ttk.Frame):
             self.main_window.show_status(f"设置角色数据失败: {e}", "red")
 
     def on_config_changed(self, event):
-        """配置改变事件"""
+        """配置改变事件 - 适配新服务"""
         if not self.current_character_id:
             return
 
         character_name = self.character_var.get()
         if character_name:
+            # 重新加载角色以应用新的等级配置
             self.main_window.character_panel.load_character_by_name(character_name)
             self.main_window.show_status("配置已更新", "blue")
 
@@ -381,6 +412,8 @@ class GearConfigTab(ttk.Frame):
                 sticky="nsew"
             )
             self.gear_widgets.append(gear_widget)
+
+        self.main_window.gear_widgets = self.gear_widgets
 
     def on_enhance_level_changed(self, event):
         """强化等级改变事件"""

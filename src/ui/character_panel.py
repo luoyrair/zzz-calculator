@@ -2,10 +2,11 @@
 """重构后的角色面板 - 完全适配新架构"""
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from src.core.character_models import FinalCharacterStats
 from src.core.service_factory import get_service_factory
+from src.services.character_service import CharacterService
 
 
 class CharacterPanel(ttk.Frame):
@@ -15,6 +16,10 @@ class CharacterPanel(ttk.Frame):
         super().__init__(parent)
         self.main_window = main_window
         self.service_factory = get_service_factory()
+
+        # 使用新的服务
+        self.character_service: Optional[CharacterService] = None
+        self.character_manager = self.service_factory.character_manager
 
         # 当前数据
         self.current_base_stats = None
@@ -124,64 +129,115 @@ class CharacterPanel(ttk.Frame):
         self.final_placeholder.pack(pady=30)
 
     def load_character_by_name(self, character_name: str):
-        """通过角色名称加载角色"""
+        """通过角色名称加载角色 - 适配新服务"""
         try:
-            character_id = self.service_factory.character_manager.get_character_id_by_name(character_name)
+            print(f"开始加载角色: {character_name}")
+
+            # 获取角色ID
+            character_id = self.character_manager.get_character_id_by_name(character_name)
             if not character_id:
                 self.show_error(f"未找到角色: {character_name}")
+                print(f"未找到角色ID: {character_name}")
+                return
+
+            print(f"找到角色ID: {character_id}")
+
+            # 获取服务实例
+            self.character_service = self.service_factory.character_service
+
+            # 使用新服务加载角色
+            print(f"开始使用服务加载角色...")
+            if not self.character_service.load_character_by_id(character_id):
+                self.show_error(f"加载角色数据失败: {character_name}")
+                print(f"服务加载失败: {character_name}")
                 return
 
             # 获取等级配置
             level = self.main_window.character_level.get()
             extra_level = self.main_window.extra_level.get()
 
-            # 获取详细属性
-            detailed_stats = self.service_factory.character_calculator.get_character_detailed_stats(
-                character_id, level, extra_level
+            print(f"等级配置: 等级={level}, 核心技={extra_level}")
+
+            # 计算突破阶段 (根据等级确定)
+            breakthrough_level = self._calculate_breakthrough_level(level)
+            print(f"突破阶段: {breakthrough_level}")
+
+            # 使用新服务计算属性
+            print(f"开始计算属性...")
+            base_stats = self.character_service.calculate_character_stats(
+                level, breakthrough_level, extra_level
             )
 
-            if not detailed_stats or "base_stats" not in detailed_stats:
-                self.show_error("获取角色数据失败")
+            if not base_stats:
+                self.show_error("计算角色属性失败")
+                print(f"属性计算失败")
                 return
 
-            self._update_with_detailed_data(character_id, detailed_stats)
+            print(f"属性计算成功")
+
+            # 更新UI
+            self._update_with_character_data(character_id, base_stats)
+
+            print(f"角色加载完成: {character_name}")
 
         except Exception as e:
-            self.show_error(f"加载角色失败: {str(e)}")
+            error_msg = f"加载角色失败: {str(e)}"
+            self.show_error(error_msg)
+            print(f"发生异常: {error_msg}")
             import traceback
             traceback.print_exc()
 
-    def _update_with_detailed_data(self, character_id: str, detailed_stats: Dict[str, Any]):
-        """使用详细数据更新UI"""
-        # 更新角色信息
-        self._update_character_info(detailed_stats["character_info"])
+    def _calculate_breakthrough_level(self, level: int) -> int:
+        """根据等级计算突破阶段"""
+        if level <= 10:
+            return 1
+        elif level <= 20:
+            return 2
+        elif level <= 30:
+            return 3
+        elif level <= 40:
+            return 4
+        elif level <= 50:
+            return 5
+        else:
+            return 6
+
+    def _update_with_character_data(self, character_id: str, base_stats):
+        """使用新服务的数据更新UI"""
+        # 获取角色显示信息
+        display_info = self.character_service.get_character_display_info()
 
         # 存储基础数据
-        self.current_base_stats = detailed_stats["base_stats"]
+        self.current_base_stats = base_stats
+
+        self.main_window.set_current_base_stats(base_stats)
+
+        # 更新角色信息显示
+        self._update_character_info(display_info)
 
         # 更新基础属性显示
-        self._update_base_stats_display(detailed_stats["attributes"])
+        self._update_base_stats_display(base_stats)
 
         # 触发计算更新
         self.main_window.update_calculation()
 
-    def _update_character_info(self, display_info: Dict[str, str]):
-        """更新角色信息显示"""
-        self.character_name_label.config(text=display_info["name"])
+    def _update_character_info(self, display_info: Dict[str, Any]):
+        """更新角色信息显示 - 适配新数据格式"""
+        self.character_name_label.config(text=display_info.get("name", "未知角色"))
 
         # 稀有度
-        rarity = int(display_info["rarity"])
+        rarity = display_info.get("rarity", 4)
         from src.config import config_manager
         rarity_color = config_manager.character.display_config.get_rarity_color(rarity)
         star_text = "★" * (rarity + 1)
         self.rarity_label.config(text=f"{star_text}", foreground=rarity_color)
 
         # 武器和元素
-        self.weapon_label.config(text=f"武器: {display_info['weapon_type']}")
-        self.element_label.config(text=f"元素: {display_info['element_type']}")
+        self.weapon_label.config(text=f"特性: {display_info.get('weapon_type', '未知')}")
+        self.element_label.config(text=f"元素: {display_info.get('element_type', '未知')}")
 
-    def _update_base_stats_display(self, attributes: Dict[str, Any]):
-        """更新基础属性显示"""
+    def _update_base_stats_display(self, base_stats):
+        """更新基础属性显示 - 适配新数据格式"""
         # 移除初始提示
         if self.base_placeholder:
             self.base_placeholder.destroy()
@@ -193,9 +249,30 @@ class CharacterPanel(ttk.Frame):
 
         self.base_stat_labels.clear()
 
+        # 获取显示顺序配置
+        from src.config import config_manager
+        output_config = config_manager.character.attribute_output_config
+
+        # 使用新服务获取武器类型
+        if self.character_service:
+            display_info = self.character_service.get_character_display_info()
+            weapon_type = display_info.get("weapon_type", "")
+        else:
+            weapon_type = ""
+
+        # 获取输出顺序
+        display_order = output_config.get_output_order(weapon_type)
+
         # 创建属性网格
         row = 0
-        for attr_key, attr_data in attributes.items():
+        for attr_key in display_order:
+            if not hasattr(base_stats, attr_key):
+                continue
+
+            value = getattr(base_stats, attr_key, 0)
+            display_name = output_config.get_display_name(attr_key)
+            formatted_value = self._format_attribute_value(attr_key, value)
+
             attr_frame = ttk.Frame(self.scrollable_base_frame)
             attr_frame.grid(row=row, column=0, sticky="we", pady=2)
             attr_frame.columnconfigure(1, weight=1)
@@ -203,7 +280,7 @@ class CharacterPanel(ttk.Frame):
             # 属性名称
             name_label = ttk.Label(
                 attr_frame,
-                text=f"{attr_data['display_name']}:",
+                text=f"{display_name}:",
                 width=20,
                 anchor='w'
             )
@@ -212,7 +289,7 @@ class CharacterPanel(ttk.Frame):
             # 属性值（蓝色）
             value_label = ttk.Label(
                 attr_frame,
-                text=attr_data['formatted_value'],
+                text=formatted_value,
                 foreground="blue",
                 width=15,
                 anchor='e'

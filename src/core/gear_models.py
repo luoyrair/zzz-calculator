@@ -86,30 +86,44 @@ class GearBonuses(CharacterData):
     def __init__(self, attribute_calculator: AttributeCalculator):
         super().__init__()
         self.attribute_calculator = attribute_calculator
+        print(f"[DEBUG] GearBonuses 初始化，attribute_calculator: {self.attribute_calculator}")
 
     def calculate_from_gear_set(self, gear_pieces: List[GearPiece],
                                 set_selection: GearSetSelection,
                                 set_manager: 'GearSetManager',
                                 base_stats: BaseCharacterStats):
-        """计算驱动盘加成"""
+        """计算驱动盘加成（兼容旧版本）"""
         self.reset()
 
         # 计算单个驱动盘加成
-        for gear_piece in gear_pieces:
-            self._add_gear_piece_bonuses(gear_piece, base_stats)
+        self.calculate_individual_pieces(gear_pieces, base_stats)
 
         # 计算套装效果
         set_bonuses = set_manager.get_set_bonuses(set_selection)
         self.merge(set_bonuses)
 
+    def calculate_individual_pieces(self, gear_pieces: List[GearPiece], base_stats: BaseCharacterStats):
+        """计算单个驱动盘的属性加成（不含套装效果）"""
+        print(f"[DEBUG] GearBonuses.calculate_individual_pieces 开始")
+
+        for gear_piece in gear_pieces:
+            print(f"[DEBUG] 处理槽位 {gear_piece.slot_index}")
+            self._add_gear_piece_bonuses(gear_piece, base_stats)
+
+        print(f"[DEBUG] 单个驱动盘计算完成: HP={self.HP}, ATK={self.ATK}")
+
     def _add_gear_piece_bonuses(self, gear_piece: GearPiece, base_stats: BaseCharacterStats):
         """添加单个驱动盘的加成"""
+        print(f"[DEBUG] _add_gear_piece_bonuses: 处理槽位{gear_piece.slot_index}")
         # 主属性加成
         if gear_piece.main_gear_key and gear_piece.main_value > 0:
+            print(f"[DEBUG]  主属性: {gear_piece.main_gear_key}={gear_piece.main_value}")
             main_bonus = self.attribute_calculator.calculate_gear_attribute_contribution(
                 gear_piece.main_gear_key, gear_piece.main_value, base_stats
             )
+            print(f"[DEBUG]  主属性加成结果: HP={main_bonus.HP}, ATK={main_bonus.ATK}")
             self.merge(main_bonus)
+            print(f"[DEBUG]  合并后总加成: HP={self.HP}, ATK={self.ATK}")
 
         # 副属性加成
         for sub_attr in gear_piece.sub_attributes:

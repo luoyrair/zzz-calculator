@@ -44,6 +44,7 @@ class GearAttribute:
     base_attribute: Optional[GearAttributeType] = None
 
     def get_final_attribute_key(self) -> str:
+        print(f"[DEBUG] GearAttribute.get_final_attribute_key: {self.gear_key} -> {self.attribute_type.value}")
         return self.attribute_type.value
 
 
@@ -91,7 +92,12 @@ class AttributeConfig:
                                          GearAttributeType.ATK),
             "DEF_PERCENT": GearAttribute("DEF_PERCENT", GearAttributeType.DEF, AttributeValueType.PERCENTAGE, "防御力%",
                                          GearAttributeType.DEF),
-            "Impact": GearAttribute("Impact", GearAttributeType.Impact, AttributeValueType.PERCENTAGE, "冲击力"),
+            "Impact": GearAttribute("Impact", GearAttributeType.Impact, AttributeValueType.PERCENTAGE, "冲击力",
+                                    GearAttributeType.Impact),
+            "Anomaly_Mastery": GearAttribute("Anomaly_Mastery", GearAttributeType.Anomaly_Mastery,
+                                             AttributeValueType.PERCENTAGE, "异常掌控", GearAttributeType.Anomaly_Mastery),
+            "Energy_Regen": GearAttribute("Energy_Regen", GearAttributeType.Energy_Regen,
+                                          AttributeValueType.PERCENTAGE, "能量回复", GearAttributeType.Energy_Regen),
 
             # 比率属性
             "CRIT_Rate": GearAttribute("CRIT_Rate", GearAttributeType.CRIT_Rate, AttributeValueType.RATE_PERCENTAGE,
@@ -100,10 +106,6 @@ class AttributeConfig:
                                       "暴击伤害"),
             "PEN_Ratio": GearAttribute("PEN_Ratio", GearAttributeType.PEN_Ratio, AttributeValueType.RATE_PERCENTAGE,
                                        "穿透率"),
-            "Anomaly_Mastery": GearAttribute("Anomaly_Mastery", GearAttributeType.Anomaly_Mastery,
-                                             AttributeValueType.RATE_PERCENTAGE, "异常掌控"),
-            "Energy_Regen": GearAttribute("Energy_Regen", GearAttributeType.Energy_Regen,
-                                          AttributeValueType.RATE_PERCENTAGE, "能量回复"),
 
             # 伤害加成
             "Physical_DMG_Bonus": GearAttribute("Physical_DMG_Bonus", GearAttributeType.Physical_DMG_Bonus,
