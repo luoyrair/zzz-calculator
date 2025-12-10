@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 
-from src.config import config_manager
+from src import config_manager
 from src.utils.data_downloader import DownloadService
 
 
@@ -509,7 +509,7 @@ class FileManagementService:
             print(f"✅ 清理了 {result['backups_cleaned']} 个旧备份")
 
         # 清空计算器缓存
-        from src.core.service_factory import get_service_factory
+        from src import get_service_factory
         service_factory = get_service_factory()
         service_factory.clear_cache()
         print("✅ 计算器缓存已清空")
@@ -536,7 +536,7 @@ class FileManagementService:
         # 复制配置文件
         config_files = [
             self.processor.file_config.character_ids_file,
-            self.processor.file_config.id_name_mapping_file
+            self.processor.file_config.character_id_name_mapping_file
         ]
 
         for config_file in config_files:

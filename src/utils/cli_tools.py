@@ -3,7 +3,7 @@
 import sys
 from typing import List
 
-from src.config import config_manager
+from src import config_manager
 from src.utils.file_processor import FileManagementService
 
 

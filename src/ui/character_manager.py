@@ -3,7 +3,7 @@
 import json
 from typing import Dict, List, Optional
 
-from src.config import config_manager
+from src import config_manager
 
 
 class CharacterManager:
@@ -16,7 +16,7 @@ class CharacterManager:
 
     def _load_mappings(self):
         """加载名称-ID映射"""
-        mapping_file = config_manager.file.id_name_mapping_file
+        mapping_file = config_manager.file.character_id_name_mapping_file
         try:
             if mapping_file.exists():
                 with open(mapping_file, 'r', encoding='utf-8') as f:
@@ -50,7 +50,7 @@ class CharacterManager:
 
     def _save_mappings(self):
         """保存映射到文件"""
-        mapping_file = config_manager.file.id_name_mapping_file
+        mapping_file = config_manager.file.character_id_name_mapping_file
         try:
             with open(mapping_file, 'w', encoding='utf-8') as f:
                 json.dump(self._name_id_mapping, f, ensure_ascii=False, indent=2)

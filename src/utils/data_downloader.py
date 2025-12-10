@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional, Dict, Any
 
 import requests
 
-from src.config import config_manager
+from src import config_manager
 
 
 def remove_html_tags(text):
@@ -34,7 +34,9 @@ class DataDownloader:
             "endpoints": {
                 "character_list": "/character.json",
                 "character_data": "/zh/character/{character_id}.json",
-                "equipment_data": "/equipment.json"
+                "equipment_data": "/equipment.json",
+                "weapon_list": "/weapon.json",
+                "weapon_data": "/zh/weapon/{weapon_id}.json"
             },
             "request_delay": 0.1,
             "timeout": 10
@@ -75,6 +77,71 @@ class DataDownloader:
 
                 character_name = data.get('Name', '未知角色')
                 print(f"   ✅ 下载成功: {character_name}")
+                return True
+            else:
+                print(f"   ❌ 下载失败: HTTP {response.status_code}")
+                return False
+
+        except Exception as e:
+            print(f"   ❌ 下载失败: {e}")
+            return False
+
+    def download_weapon_list(self) -> Optional[Dict[str, Any]]:
+        """下载音擎列表"""
+        print("📥 开始下载音擎列表...")
+
+        url = self._build_url("weapon_list")
+        print(f"🔗 请求URL: {url}")
+
+        try:
+            response = self._session.get(url, timeout=self.api_config["timeout"])
+            response.raise_for_status()
+
+            data = response.json()
+            self._save_weapon_mapping(data)
+
+            print(f"✅ 音擎列表下载成功: {len(data)} 个音擎")
+            return data
+
+        except Exception as e:
+            print(f"❌ 音擎列表下载失败: {e}")
+            return None
+
+    def download_weapon_data(self, weapon_id: str) -> bool:
+        """下载单个音擎数据"""
+        d = {}
+        url = self._build_url("weapon_data", weapon_id=weapon_id)
+
+        try:
+            response = self._session.get(url, timeout=self.api_config["timeout"])
+
+            if response.status_code == 200:
+                data = response.json()
+                key_l = ["Id", "Name", "Rarity", "WeaponType", "BaseProperty", "RandProperty", "Stars"]
+                for k, v in data.items():
+                    if k in key_l:
+                        d[k] = v
+                    elif k == "Level":
+                        d[k] = {}
+                        for k1, v1 in v.items():
+                            d[k][k1] = {}
+                            for k2, v2 in v1.items():
+                                if k2 != "Exp":
+                                    d[k][k1][k2] = v2
+                    elif k == "Talents":
+                        d[k] = {}
+                        for k1, v1 in v.items():
+                            d[k][k1] = {}
+                            for k2, v2 in v1.items():
+                                d[k][k1][k2] = {}
+                                if k2 == "Desc":
+                                    d[k][k1][k2] = remove_html_tags(v2)
+                                else:
+                                    d[k][k1][k2] = v2
+                self._save_weapon_file(weapon_id, d)
+
+                weapon_name = data.get('Name', '未知音擎')
+                print(f"   ✅ 下载成功: {weapon_name}")
                 return True
             else:
                 print(f"   ❌ 下载失败: HTTP {response.status_code}")
@@ -158,6 +225,36 @@ class DataDownloader:
 
         return success_count, failed_ids
 
+    def batch_download_weapons(self, weapon_ids: List[str] = None) -> Tuple[int, List[str]]:
+        """批量下载音擎数据"""
+        if weapon_ids is None:
+            weapon_ids = self._load_weapon_ids()
+            if not weapon_ids:
+                print("❌ 没有可用的音擎ID")
+                return 0, []
+
+        print(f"📥 开始批量下载 {len(weapon_ids)} 个音擎数据...")
+
+        success_count = 0
+        failed_ids = []
+
+        for index, _id in enumerate(weapon_ids, 1):
+            print(f"🔍 正在下载 ({index}/{len(weapon_ids)}): {_id}")
+
+            success = self.download_weapon_data(_id)
+
+            if success:
+                success_count += 1
+            else:
+                failed_ids.append(_id)
+
+            time.sleep(self.api_config["request_delay"])
+
+        self._save_failed_downloads(failed_ids)
+        self._print_download_summary(success_count, failed_ids, len(weapon_ids))
+
+        return success_count, failed_ids
+
     def retry_failed_downloads(self, max_retries: int = 3) -> Tuple[int, List[str]]:
         """重试失败的下载"""
         failed_ids = self._load_failed_downloads()
@@ -231,7 +328,7 @@ class DataDownloader:
             id_name_mapping[character_id] = name
 
         # 保存映射文件
-        with open(self.file_config.id_name_mapping_file, "w", encoding="utf-8") as f:
+        with open(self.file_config.character_id_name_mapping_file, "w", encoding="utf-8") as f:
             json.dump(id_name_mapping, f, ensure_ascii=False, indent=2)
 
         # 保存角色ID列表
@@ -247,6 +344,34 @@ class DataDownloader:
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
+    def _save_weapon_mapping(self, data: Dict[str, Any]):
+        """保存音擎ID-名称映射"""
+        id_name_mapping = {}
+
+        for weapon_id, weapon_data in data.items():
+            name = (weapon_data.get("CHS") or
+                    weapon_data.get("EN") or
+                    weapon_data.get("JP") or
+                    f"音擎_{weapon_id}")
+            id_name_mapping[weapon_id] = name
+
+        # 保存映射文件
+        with open(self.file_config.weapon_id_name_mapping_file, "w", encoding="utf-8") as f:
+            json.dump(id_name_mapping, f, ensure_ascii=False, indent=2)
+
+        # 保存音擎ID列表
+        weapon_ids = list(data.keys())
+        with open(self.file_config.weapon_ids_file, "w", encoding="utf-8") as f:
+            json.dump(weapon_ids, f, ensure_ascii=False, indent=2)
+
+        print(f"💾 音擎映射已保存: {len(id_name_mapping)} 个音擎")
+
+    def _save_weapon_file(self, character_id: str, data: Dict[str, Any]):
+        """保存音擎数据文件"""
+        file_path = self.file_config.get_weapon_file_path(character_id)
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
     def _load_character_ids(self) -> List[str]:
         """加载角色ID列表"""
         try:
@@ -257,6 +382,18 @@ class DataDownloader:
             return []
         except Exception as e:
             print(f"❌ 加载角色ID失败: {e}")
+            return []
+
+    def _load_weapon_ids(self) -> List[str]:
+        """加载音擎ID列表"""
+        try:
+            with open(self.file_config.weapon_ids_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print("❌ 音擎ID文件不存在")
+            return []
+        except Exception as e:
+            print(f"❌ 加载音擎ID失败: {e}")
             return []
 
     def _save_failed_downloads(self, failed_ids: List[str]):
@@ -343,6 +480,15 @@ class DownloadService:
         """仅下载装备数据"""
         equipment_ids = self.downloader.download_equipment_data()
         return equipment_ids is not None
+
+    def download_weapon_only(self):
+        """仅下载音擎数据"""
+        # 下载音擎列表
+        weapon_data = self.downloader.download_weapon_list()
+        # 下载音擎数据
+        weapon_ids = list(weapon_data.keys())
+        success_count, failed_ids = self.downloader.batch_download_weapons(weapon_ids)
+
 
     def check_data_completeness(self) -> Dict[str, Any]:
         """检查数据完整性"""

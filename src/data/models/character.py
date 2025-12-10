@@ -1,5 +1,5 @@
-# src/data/json_models.py
-"""JSON数据结构定义 - 匹配实际的JSON文件格式"""
+# src/data/models/character.py
+"""角色JSON数据模型"""
 import json
 from dataclasses import dataclass, field
 from typing import Dict, Any, List
@@ -63,8 +63,6 @@ class JsonLevelData:
     Defence: int = 0
     LevelMax: int = 0
     LevelMin: int = 0
-    Materials: Dict[str, int] = field(default_factory=dict)
-
 
 @dataclass
 class JsonExtraProperty:
@@ -74,13 +72,11 @@ class JsonExtraProperty:
     Format: str = ""
     Value: int = 0
 
-
 @dataclass
 class JsonExtraLevelData:
     """ExtraLevel数据"""
     MaxLevel: int = 0
     Extra: Dict[str, JsonExtraProperty] = field(default_factory=dict)
-
 
 @dataclass
 class JsonPassiveExtraProperty:
@@ -106,19 +102,6 @@ class JsonPassiveLevel:
     Desc: List[str] = field(default_factory=list)
     ExtraProperty: Dict[str, JsonPassiveExtraProperty] = field(default_factory=dict)
 
-
-@dataclass
-class JsonFairyRecommend:
-    """FairyRecommend数据"""
-    Slot4: int = 0
-    Slot2: int = 0
-    SlotSub: int = 0
-    Part4: Dict[str, Any] = field(default_factory=dict)
-    Part5: Dict[str, Any] = field(default_factory=dict)
-    Part6: Dict[str, Any] = field(default_factory=dict)
-    PartSub: Dict[str, Any] = field(default_factory=dict)
-
-
 @dataclass
 class JsonCharacterData:
     """完整的JSON角色数据结构"""
@@ -138,7 +121,6 @@ class JsonCharacterData:
     ExtraLevel: Dict[str, JsonExtraLevelData] = field(default_factory=dict)
 
     Passive: Dict[str, Any] = field(default_factory=dict)
-    FairyRecommend: JsonFairyRecommend = field(default_factory=JsonFairyRecommend)
 
     @classmethod
     def from_json_file(cls, file_path: str) -> 'JsonCharacterData':
@@ -162,14 +144,19 @@ class JsonCharacterData:
         # 处理Level字段
         level = {}
         for level_key, level_data in raw_data.get("Level", {}).items():
-            level[level_key] = JsonLevelData(
-                HpMax=level_data.get("HpMax", 0),
-                Attack=level_data.get("Attack", 0),
-                Defence=level_data.get("Defence", 0),
-                LevelMax=level_data.get("LevelMax", 0),
-                LevelMin=level_data.get("LevelMin", 0),
-                Materials=level_data.get("Materials", {})
-            )
+            try:
+                # 确保我们创建的是 JsonLevelData 对象
+                level[level_key] = JsonLevelData(
+                    HpMax=level_data.get("HpMax", 0),
+                    Attack=level_data.get("Attack", 0),
+                    Defence=level_data.get("Defence", 0),
+                    LevelMax=level_data.get("LevelMax", 0),
+                    LevelMin=level_data.get("LevelMin", 0)
+                )
+            except Exception as e:
+                print(f"[JsonCharacterData] 解析Level字段{level_key}时出错: {e}")
+                # 创建默认对象
+                level[level_key] = JsonLevelData()
 
         # 处理ExtraLevel字段
         extra_level = {}
@@ -211,17 +198,7 @@ class JsonCharacterData:
         if "Materials" in passive_data:
             pass
 
-        # 处理FairyRecommend字段
-        fairy_data = raw_data.get("FairyRecommend", {})
-        fairy_recommend = JsonFairyRecommend(
-            Slot4=fairy_data.get("Slot4", 0),
-            Slot2=fairy_data.get("Slot2", 0),
-            SlotSub=fairy_data.get("SlotSub", 0),
-            Part4=fairy_data.get("Part4", {}),
-            Part5=fairy_data.get("Part5", {}),
-            Part6=fairy_data.get("Part6", {}),
-            PartSub=fairy_data.get("PartSub", {})
-        )
+        # 暂时不处理FairyRecommend字段
 
         return cls(
             Id=raw_data.get("Id", 0),
@@ -237,6 +214,5 @@ class JsonCharacterData:
             Stats=stats,
             Level=level,
             ExtraLevel=extra_level,
-            Passive=passive_data_with_levels,
-            FairyRecommend=fairy_recommend
+            Passive=passive_data_with_levels
         )
