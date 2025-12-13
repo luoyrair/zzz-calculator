@@ -9,6 +9,7 @@ from src.models.gear_models import GearSetSelection
 from .character_panel import CharacterPanel
 from .tabs.character_config_tab import CharacterConfigTab
 from .tabs.gear_config_tab import GearConfigTab
+from ..services.gear_export_service import GearExportService
 
 
 class MainWindow:
@@ -20,6 +21,7 @@ class MainWindow:
         self.root.geometry("1400x900")
 
         self.calculation_service = calculation_service
+        self.export_service = GearExportService(self)
 
         # 当前状态
         self.current_character_id: int = 0
@@ -40,6 +42,7 @@ class MainWindow:
 
     def setup_ui(self):
         """设置UI布局"""
+        self._setup_keyboard_shortcuts()
         # 主框架
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill='both', expand=True)
@@ -175,3 +178,16 @@ class MainWindow:
     def update_status(self, message: str, color: str = "black"):
         """更新状态信息"""
         self.status_label.config(text=message, foreground=color)
+
+    def _setup_keyboard_shortcuts(self):
+        """设置键盘快捷键"""
+        # 导出导入快捷键
+        self.root.bind('<Control-s>', lambda e: self.export_service.export_to_file())
+        self.root.bind('<Control-o>', lambda e: self.export_service.import_from_file())
+        self.root.bind('<Control-c>', lambda e: self.export_service.copy_as_json())
+        self.root.bind('<Control-v>', lambda e: self.export_service.paste_from_clipboard())
+        self.root.bind('<Control-p>', lambda e: self.export_service.preset_manager.save_as_preset())
+        self.root.bind('<Control-m>', lambda e: self.export_service.preset_manager.show_preset_manager())
+
+        # 计算快捷键
+        self.root.bind('<F5>', lambda e: self.recalculate_final_stats())

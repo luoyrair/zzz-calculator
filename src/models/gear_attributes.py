@@ -168,60 +168,50 @@ class GearMainAttributes:
 
 
 class GearSubAttributes:
-    """驱动盘副属性集合 - 提供工厂方法而不是共享实例"""
+    """驱动盘副属性集合"""
 
-    @staticmethod
-    def get_hp_numeric() -> SubAttribute:
-        return create_sub_attribute_numeric("生命值", AttributeType.HP, 112, 112)
+    # 静态实例
+    hp_numeric = None
+    hp_percentage = None
+    attack_numeric = None
+    attack_percentage = None
+    defence_numeric = None
+    defence_percentage = None
+    crit_rate = None
+    crit_dmg = None
+    anomaly_proficiency = None
+    pen = None
 
-    @staticmethod
-    def get_hp_percentage() -> SubAttribute:
-        return create_sub_attribute_percentage("生命值百分比", AttributeType.HP, 0.03, 0.03)
+    @classmethod
+    def _initialize(cls):
+        """初始化所有副属性实例"""
+        if cls.hp_numeric is None:
+            cls.hp_numeric = create_sub_attribute_numeric("生命值", AttributeType.HP, 112, 112)
+            cls.hp_percentage = create_sub_attribute_percentage("生命值百分比", AttributeType.HP, 0.03, 0.03)
+            cls.attack_numeric = create_sub_attribute_numeric("攻击力", AttributeType.ATK, 19, 19)
+            cls.attack_percentage = create_sub_attribute_percentage("攻击力百分比", AttributeType.ATK, 0.03, 0.03)
+            cls.defence_numeric = create_sub_attribute_numeric("防御力", AttributeType.DEF, 15, 15)
+            cls.defence_percentage = create_sub_attribute_percentage("防御力百分比", AttributeType.DEF, 0.048, 0.048)
+            cls.crit_rate = create_sub_attribute_rate_percentage("暴击率", AttributeType.CRIT_RATE, 0.024, 0.024)
+            cls.crit_dmg = create_sub_attribute_rate_percentage("暴击伤害", AttributeType.CRIT_DMG, 0.048, 0.048)
+            cls.anomaly_proficiency = create_sub_attribute_numeric("异常精通", AttributeType.ANOMALY_PROFICIENCY, 9, 9)
+            cls.pen = create_sub_attribute_numeric("穿透值", AttributeType.PEN, 9, 9)
 
-    @staticmethod
-    def get_attack_numeric() -> SubAttribute:
-        return create_sub_attribute_numeric("攻击力", AttributeType.ATK, 19, 19)
+    @classmethod
+    def get_all_sub_attributes(cls) -> List['SubAttribute']:
+        """获取所有副属性的新实例"""
+        cls._initialize()
 
-    @staticmethod
-    def get_attack_percentage() -> SubAttribute:
-        return create_sub_attribute_percentage("攻击力百分比", AttributeType.ATK, 0.03, 0.03)
-
-    @staticmethod
-    def get_defence_numeric() -> SubAttribute:
-        return create_sub_attribute_numeric("防御力", AttributeType.DEF, 15, 15)
-
-    @staticmethod
-    def get_defence_percentage() -> SubAttribute:
-        return create_sub_attribute_percentage("防御力百分比", AttributeType.DEF, 0.048, 0.048)
-
-    @staticmethod
-    def get_crit_rate() -> SubAttribute:
-        return create_sub_attribute_rate_percentage("暴击率", AttributeType.CRIT_RATE, 0.024, 0.024)
-
-    @staticmethod
-    def get_crit_dmg() -> SubAttribute:
-        return create_sub_attribute_rate_percentage("暴击伤害", AttributeType.CRIT_DMG, 0.048, 0.048)
-
-    @staticmethod
-    def get_anomaly_proficiency() -> SubAttribute:
-        return create_sub_attribute_numeric("异常精通", AttributeType.ANOMALY_PROFICIENCY, 9, 9)
-
-    @staticmethod
-    def get_pen() -> SubAttribute:
-        return create_sub_attribute_numeric("穿透力", AttributeType.PEN, 9, 9)
-
-    @staticmethod
-    def get_all_sub_attributes() -> List[SubAttribute]:
-        """获取所有副属性类型的新实例"""
+        # 返回新实例而不是共享实例
         return [
-            GearSubAttributes.get_hp_numeric(),
-            GearSubAttributes.get_hp_percentage(),
-            GearSubAttributes.get_attack_numeric(),
-            GearSubAttributes.get_attack_percentage(),
-            GearSubAttributes.get_defence_numeric(),
-            GearSubAttributes.get_defence_percentage(),
-            GearSubAttributes.get_crit_rate(),
-            GearSubAttributes.get_crit_dmg(),
-            GearSubAttributes.get_anomaly_proficiency(),
-            GearSubAttributes.get_pen()
+            create_sub_attribute_numeric("生命值", AttributeType.HP, 112, 112),
+            create_sub_attribute_percentage("生命值百分比", AttributeType.HP, 0.03, 0.03),
+            create_sub_attribute_numeric("攻击力", AttributeType.ATK, 19, 19),
+            create_sub_attribute_percentage("攻击力百分比", AttributeType.ATK, 0.03, 0.03),
+            create_sub_attribute_numeric("防御力", AttributeType.DEF, 15, 15),
+            create_sub_attribute_percentage("防御力百分比", AttributeType.DEF, 0.048, 0.048),
+            create_sub_attribute_rate_percentage("暴击率", AttributeType.CRIT_RATE, 0.024, 0.024),
+            create_sub_attribute_rate_percentage("暴击伤害", AttributeType.CRIT_DMG, 0.048, 0.048),
+            create_sub_attribute_numeric("异常精通", AttributeType.ANOMALY_PROFICIENCY, 9, 9),
+            create_sub_attribute_numeric("穿透值", AttributeType.PEN, 9, 9)
         ]

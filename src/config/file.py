@@ -16,7 +16,8 @@ class FileConfig:
             self.base_dir,
             self.characters_dir,
             self.weapons_dir,
-            self.equipment_dir
+            self.equipment_dir,
+            self.presets_dir
         ]
 
         for directory in directories:
@@ -33,6 +34,10 @@ class FileConfig:
     @property
     def equipment_dir(self) -> Path:
         return self.base_dir / "equipment"
+
+    @property
+    def presets_dir(self) -> Path:
+        return self.base_dir / "presets"
 
     @property
     def character_ids_file(self) -> Path:

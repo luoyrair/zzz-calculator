@@ -67,13 +67,71 @@ class AttributeComboBox(ttk.Combobox):
             pass
         return None
 
-    def set_selected_attribute(self, attribute: Attribute):
-        """通过 Attribute 对象设置选择"""
-        if attribute in self._attributes:
-            index = self._attributes.index(attribute)
-            self.current(index)
+    def set_selected_attribute(self, attribute: Optional['Attribute']):
+        """通过 Attribute 对象设置选择 - 修复版本"""
+        if attribute is None:
+            try:
+                self.set("")  # 清空显示文本
+                # 尝试设置current为-1，如果失败则忽略
+                self.current(-1)
+            except tk.TclError:
+                # 如果设置-1失败，尝试其他方法
+                try:
+                    # 尝试清空选择的其他方式
+                    self.current()
+                except:
+                    pass  # 如果还失败，忽略错误
+            return
+
+        # 查找属性在列表中的位置
+        found_index = -1
+        for index, attr in enumerate(self._attributes):
+            if self._is_same_attribute(attr, attribute):
+                found_index = index
+                break
+
+        if found_index >= 0:
+            try:
+                self.current(found_index)
+                # 确保显示文本也更新
+                if self._display_func:
+                    display_text = self._display_func(attribute)
+                else:
+                    display_text = getattr(attribute, 'name', str(attribute))
+                self.set(display_text)
+            except tk.TclError as e:
+                print(f"[AttributeComboBox] 设置选择失败: {e}, index={found_index}, 属性={attribute.name}")
+                # 尝试直接设置文本
+                if self._display_func:
+                    display_text = self._display_func(attribute)
+                else:
+                    display_text = getattr(attribute, 'name', str(attribute))
+                self.set(display_text)
         else:
-            self.current()  # 清除选择
+            print(f"[AttributeComboBox] 警告: 未找到属性 {attribute.name} 在列表中")
+            self.set("")
+            try:
+                self.current(-1)
+            except tk.TclError:
+                pass
+
+    def _is_same_attribute(self, attr1, attr2) -> bool:
+        """判断两个属性是否相同 - 更宽松的匹配"""
+        if attr1 is attr2:
+            return True
+
+        # 如果都是None
+        if attr1 is None or attr2 is None:
+            return False
+
+        # 比较名称（主要依据）
+        if hasattr(attr1, 'name') and hasattr(attr2, 'name'):
+            if attr1.name != attr2.name:
+                return False
+        else:
+            return False
+
+        return True
 
     def _on_select(self, event=None):
         """选择事件处理"""

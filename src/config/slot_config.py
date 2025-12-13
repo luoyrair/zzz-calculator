@@ -39,11 +39,11 @@ class SlotConfig:
         }
 
     def get_slot_main_attribute(self, slot_id: int):
-        """获取指定槽位的主属性名称列表"""
+        """获取指定槽位的主属性列表"""
         if slot_id not in self.slot_main_attributes:
             return []
         return self.slot_main_attributes[slot_id]
 
     def get_slot_sub_attribute(self):
-        """获取所有副属性的新实例"""
+        """获取所有副属性"""
         return GearSubAttributes.get_all_sub_attributes()

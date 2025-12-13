@@ -373,18 +373,81 @@ class GearConfigTab(ttk.Frame):
         self.gear_slot_manager.slot_widgets = gear_widgets
 
     def setup_calculation_button(self, parent):
-        """设置计算按钮区域"""
+        """设置计算和导出导入按钮区域"""
         button_frame = ttk.Frame(parent)
         button_frame.pack(fill='x', pady=(10, 0))
 
+        # 左侧：计算按钮
+        left_frame = ttk.Frame(button_frame)
+        left_frame.pack(side='left', fill='x', expand=True)
+
         # 计算按钮
         self.calculate_button = ttk.Button(
-            button_frame,
+            left_frame,
             text="计算最终属性",
             command=self.calculate_final_stats,
-            style="Accent.TButton"
+            style="Accent.TButton",
+            width=15
         )
-        self.calculate_button.pack(pady=10)
+        self.calculate_button.pack(side='left', padx=(0, 10))
+
+        # 右侧：导出导入按钮
+        right_frame = ttk.Frame(button_frame)
+        right_frame.pack(side='right')
+
+        # 导出导入菜单按钮 - 只定义一次！
+        export_import_menu = tk.Menu(self.main_window.root, tearoff=0)
+
+        # 文件操作
+        export_import_menu.add_command(
+            label="导出到文件...",
+            command=self.main_window.export_service.export_to_file
+        )
+        export_import_menu.add_command(
+            label="从文件导入...",
+            command=self.main_window.export_service.import_from_file
+        )
+        export_import_menu.add_separator()
+
+        # 剪贴板操作
+        export_import_menu.add_command(
+            label="复制为JSON",
+            command=self.main_window.export_service.copy_as_json
+        )
+        export_import_menu.add_command(
+            label="复制为Base64",
+            command=self.main_window.export_service.copy_as_base64
+        )
+        export_import_menu.add_command(
+            label="从剪贴板粘贴",
+            command=self.main_window.export_service.paste_from_clipboard
+        )
+        export_import_menu.add_separator()
+
+        # 预设管理
+        export_import_menu.add_command(
+            label="保存为预设...",
+            command=self.main_window.export_service.preset_manager.save_as_preset
+        )
+        export_import_menu.add_command(
+            label="管理预设...",
+            command=self.main_window.export_service.preset_manager.show_preset_manager
+        )
+
+        # 导出导入按钮
+        export_import_btn = ttk.Menubutton(
+            right_frame,
+            text="导出/导入",
+            menu=export_import_menu,
+            direction='below'
+        )
+        export_import_btn.pack(side='left')
+
+        # 添加快捷键
+        self.main_window.root.bind('<Control-s>', lambda e: self.main_window.export_service.export_to_file())
+        self.main_window.root.bind('<Control-o>', lambda e: self.main_window.export_service.import_from_file())
+        self.main_window.root.bind('<Control-c>', lambda e: self.main_window.export_service.copy_as_json())
+        self.main_window.root.bind('<Control-v>', lambda e: self.main_window.export_service.paste_from_clipboard())
 
     def calculate_final_stats(self):
         """计算最终属性"""
