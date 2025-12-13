@@ -6,8 +6,8 @@ from typing import Dict, Any, List, Optional, Tuple
 from pathlib import Path
 from datetime import datetime
 
-from src import config_manager
-from src.utils.data_downloader import DownloadService
+from src.config.manager import config_manager
+from test.utils.data_downloader import DownloadService
 
 
 class FileProcessor:
@@ -478,44 +478,6 @@ class FileManagementService:
                 pass
 
         return status
-
-    def cleanup_system(self) -> Dict[str, Any]:
-        """清理系统"""
-        result = {
-            "cache_cleared": False,
-            "backups_cleaned": 0,
-            "temp_files_removed": 0
-        }
-
-        print("🧹 系统清理...")
-
-        # 清空缓存目录
-        cache_dir = self.processor.file_config.cache_dir
-        if cache_dir.exists():
-            import shutil
-            shutil.rmtree(cache_dir)
-            cache_dir.mkdir()
-            result["cache_cleared"] = True
-            print("✅ 缓存已清空")
-
-        # 清理旧的备份（保留最近5个）
-        backups = self.processor.list_backups()
-        if len(backups) > 5:
-            backups_to_remove = backups[5:]
-            for backup in backups_to_remove:
-                import shutil
-                shutil.rmtree(backup["path"])
-                result["backups_cleaned"] += 1
-            print(f"✅ 清理了 {result['backups_cleaned']} 个旧备份")
-
-        # 清空计算器缓存
-        from src import get_service_factory
-        service_factory = get_service_factory()
-        service_factory.clear_cache()
-        print("✅ 计算器缓存已清空")
-
-        print("✅ 系统清理完成")
-        return result
 
     def export_data(self, export_path: str = None) -> str:
         """导出数据"""

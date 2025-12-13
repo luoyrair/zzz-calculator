@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+
+
+@dataclass
 class CharacterAttributes:
     """角色基础属性数据"""
     hp: float = 0.0
@@ -23,3 +27,10 @@ class CharacterAttributes:
     adrenaline_generation_rate: int = 0
     max_adrenaline: int = 0
     sheer_dmg_bonus: float = 0.0
+
+@dataclass
+class CharacterAttributesModel(CharacterAttributes):
+    character_id : int = 0
+    rarity : int = 0
+    weapon_type : str = ""
+    element_type : str = ""

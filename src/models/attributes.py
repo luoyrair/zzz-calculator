@@ -15,6 +15,11 @@ class AttributeType(Enum):
     PEN_RATIO = "pen_ratio"
     PEN = "pen"
     ENERGY_REGEN = "energy_regen"
+    PHYSICAL_DMG_BONUS = "physical_dmg_bonus"
+    FIRE_DMG_BONUS = "fire_dmg_bonus"
+    ICE_DMG_BONUS ="ice_dmg_bonus"
+    ELECTRIC_DMG_BONUS = "electric_dmg_bonus"
+    ETHER_DMG_BONUS = "ether_dmg_bonus"
     SHEER_FORCE = "sheer_force"
     ADRENALINE_ACCUMULATION = "automatic_adrenaline_accumulation"
 

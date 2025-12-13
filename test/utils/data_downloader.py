@@ -7,7 +7,7 @@ from typing import List, Tuple, Optional, Dict, Any
 
 import requests
 
-from src import config_manager
+from src.config.manager import config_manager
 
 
 def remove_html_tags(text):

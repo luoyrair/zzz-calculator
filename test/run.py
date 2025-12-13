@@ -1,10 +1,12 @@
 from math import floor
 
-from test.calculators.character_calculator import CharacterAttributeCalculator
+from src.calculators.character_calculator import CharacterAttributeCalculator
 
 c = CharacterAttributeCalculator()
 
-d = c.calculate_character_attributes("../data/characters/1091.json", 60, 6, 7)
+d = c.calculate_character_attributes(
+    "../data/characters/1091.json", 60, 6, 7
+)
 
 o = {
     "生命值": d.hp,

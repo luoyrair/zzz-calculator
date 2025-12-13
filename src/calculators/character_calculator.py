@@ -1,5 +1,5 @@
-from test.models.character_attributes import CharacterAttributes
-from test.parsers.character_parser import load_character_data
+from src.models.character_attributes import CharacterAttributesModel
+from src.parsers.character_parser import load_character_data
 
 
 class CharacterAttributeCalculator:
@@ -14,13 +14,18 @@ class CharacterAttributeCalculator:
             character_level: int,
             breakthrough_level: int,
             core_passive_level: int
-    ) -> CharacterAttributes:
+    ) -> CharacterAttributesModel:
         """计算角色属性"""
         parsed_data = load_character_data(json_file_path)
         if not parsed_data:
             raise ValueError(f"无法加载角色数据: {json_file_path}")
 
-        attributes = CharacterAttributes()
+        attributes = CharacterAttributesModel()
+
+        attributes.character_id = parsed_data.character_id
+        attributes.rarity = parsed_data.rarity
+        attributes.weapon_type = parsed_data.weapon_type
+        attributes.element_type = parsed_data.element_type
 
         # 计算基础属性
         self._calculate_base_attributes(attributes, parsed_data, character_level, breakthrough_level)
@@ -32,12 +37,15 @@ class CharacterAttributeCalculator:
 
     def _calculate_base_attributes(
             self,
-            attributes: CharacterAttributes,
+            attributes: CharacterAttributesModel,
             parsed_data,
             character_level: int,
             breakthrough_level: int
     ):
         """计算基础属性"""
+        print(f"[CharacterCalculator] 开始计算基础属性:")
+        print(f"  角色等级: {character_level}")
+        print(f"  突破等级: {breakthrough_level}")
         # HP
         attributes.hp = (
                 parsed_data.stats.hp.growing_attribute.calculate_value_at_level(character_level) +
@@ -55,6 +63,9 @@ class CharacterAttributeCalculator:
                 parsed_data.stats.defence.growing_attribute.calculate_value_at_level(character_level) +
                 parsed_data.level[breakthrough_level].defence.base_attribute.base
         )
+        print(f"  HP成长: base={parsed_data.stats.hp.growing_attribute.base}, growth={parsed_data.stats.hp.growing_attribute.growth}")
+        print(f"  ATK成长: base={parsed_data.stats.attack.growing_attribute.base}, growth={parsed_data.stats.attack.growing_attribute.growth}")
+        print(f"  DEF成长: base={parsed_data.stats.defence.growing_attribute.base}, growth={parsed_data.stats.defence.growing_attribute.growth}")
 
         # 其他固定属性
         attributes.impact = parsed_data.stats.impact.base_attribute.base
@@ -73,7 +84,7 @@ class CharacterAttributeCalculator:
 
     def _apply_extra_attributes(
             self,
-            attributes: CharacterAttributes,
+            attributes: CharacterAttributesModel,
             parsed_data,
             core_passive_level: int
     ):

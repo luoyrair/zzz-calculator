@@ -1,8 +1,8 @@
 import json
 from dataclasses import field, dataclass
-from typing import Dict, List
+from typing import List, Dict
 
-from test.models.attributes import CharacterAttribute, AttributeValueType, AttributeType
+from src.models.attributes import CharacterAttribute, AttributeValueType, AttributeType
 
 
 class JsonStats:
@@ -52,6 +52,10 @@ class JsonPassiveLevel:
 
 @dataclass
 class JsonParsedData:
+    character_id: int
+    rarity: int
+    weapon_type: str
+    element_type: str
     stats: JsonStats = JsonStats()
     level: Dict[int, JsonLevelData] = JsonLevelData()
     extra: Dict[int, JsonExtraLevelData] = JsonExtraLevelData()
@@ -126,6 +130,12 @@ def load_character_data(file_path: str):
 
 def parse_character_data(raw_data: dict) -> JsonParsedData:
     """解析完整的角色数据"""
+    # 解析基础信息
+    _id = raw_data.get("Id", 0)
+    rarity = raw_data.get("Rarity", 0)
+    weapon_type= next(iter(raw_data.get("WeaponType", {}).values()))
+    element_type = next(iter(raw_data.get("ElementType", {}).values()))
+
     # 解析基础属性
     stats = parse_stats_from_dict(raw_data.get("Stats", {}))
 
@@ -139,6 +149,10 @@ def parse_character_data(raw_data: dict) -> JsonParsedData:
     passive_data = parse_passive_data(raw_data.get("Passive", {}))
 
     result = JsonParsedData(
+        character_id=_id,
+        rarity=rarity,
+        weapon_type=weapon_type,
+        element_type=element_type,
         stats=stats,
         level=level_data,
         extra=extra_level_data,

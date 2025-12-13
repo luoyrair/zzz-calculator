@@ -3,8 +3,7 @@
 import sys
 from typing import List
 
-from src import config_manager
-from src.utils.file_processor import FileManagementService
+from test.utils.file_processor import FileManagementService
 
 
 def init_command():
@@ -76,14 +75,6 @@ def maintenance_command():
     result = file_service.perform_maintenance()
     print("✅ 维护任务完成")
 
-
-def cleanup_command():
-    """清理命令"""
-    file_service = FileManagementService()
-    result = file_service.cleanup_system()
-    print(f"✅ 清理完成: 清空缓存, 清理 {result['backups_cleaned']} 个备份")
-
-
 def export_command(args: List[str]):
     """导出命令"""
     file_service = FileManagementService()
@@ -110,8 +101,6 @@ def main():
         download_command(args)
     elif command == "maintenance":
         maintenance_command()
-    elif command == "cleanup":
-        cleanup_command()
     elif command == "export":
         export_command(args)
     else:
