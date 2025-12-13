@@ -3,9 +3,7 @@
 from tkinter import ttk
 from typing import Dict, Optional
 
-from src.calculators.character_calculator import CharacterAttributeCalculator
-from src.calculators.gear_calculator import GearCalculator
-from src.manager.character_manager import CharacterManager
+from src import data_manager, calculation_service
 from src.models.character_attributes import CharacterAttributes
 
 
@@ -17,9 +15,8 @@ class CharacterPanel(ttk.Frame):
         self.main_window = main_window
 
         # 使用新的服务
-        self.character_manager = CharacterManager()
-        self.character_calculator = CharacterAttributeCalculator()
-        self.gear_calculator = GearCalculator()
+        self.character_calculator = calculation_service.character_calculator
+        self.gear_calculator = calculation_service.gear_calculator
 
         # 当前数据
         self.current_base_stats: Optional[CharacterAttributes] = None  # 修复类型注解
@@ -114,51 +111,6 @@ class CharacterPanel(ttk.Frame):
         )
         self.final_placeholder.place(relx=0.5, rely=0.5, anchor='center')
 
-    def load_character_by_name(self, character_name: str):
-        """通过角色名称加载角色"""
-        try:
-            # 获取角色ID
-            character_id = self.character_manager.get_character_id_by_name(character_name)
-            if not character_id:
-                self.show_error(f"未找到角色: {character_name}")
-                return
-
-            # 获取文件路径
-            from src.config.manager import config_manager
-            path = config_manager.file.get_character_file_path(character_id)
-
-            if not path.exists():
-                self.show_error(f"角色文件不存在: {path}")
-                return
-
-            # 获取等级配置
-            level = self.main_window.character_level.get()
-            extra_level = self.main_window.extra_level.get()
-
-            # 计算突破阶段 (根据等级确定)
-            breakthrough_level = self._calculate_breakthrough_level(level)
-
-            # 计算角色属性
-            base_stats = self.character_calculator.calculate_character_attributes(
-                str(path),  # 转换为字符串路径
-                level,
-                breakthrough_level,
-                extra_level
-            )
-
-            if not base_stats:
-                self.show_error("计算角色属性失败")
-                return
-
-            # 更新UI
-            self.update_with_character_data(base_stats)
-
-        except Exception as e:
-            error_msg = f"加载角色失败: {str(e)}"
-            self.show_error(error_msg)
-            import traceback
-            traceback.print_exc()
-
     def _calculate_breakthrough_level(self, level: int) -> int:
         """根据等级计算突破阶段"""
         if level <= 10:
@@ -178,7 +130,7 @@ class CharacterPanel(ttk.Frame):
         """更新角色数据"""
         # 存储基础数据
         self.current_base_stats = base_stats
-        self.main_window.set_current_base_stats(base_stats)
+        self.main_window.current_base_stats = base_stats
 
         # 更新角色信息显示
         self._update_character_info(base_stats)
@@ -187,12 +139,12 @@ class CharacterPanel(ttk.Frame):
         self._update_base_stats_display(base_stats)
 
         # 触发计算更新
-        self.main_window.update_calculation()
+        self.main_window.recalculate_final_stats()
 
     def _update_character_info(self, display_info):
         """更新角色信息显示 - 适配新数据格式"""
-        character_name = self.character_manager.get_character_name_by_id(display_info.character_id)
-        self.character_name_label.config(text=character_name)
+        character = data_manager.get_character(display_info.character_id)
+        self.character_name_label.config(text=character.name)
 
         # 稀有度
         rarity = display_info.rarity
@@ -242,7 +194,7 @@ class CharacterPanel(ttk.Frame):
             "energy_regen": "能量自动回复"
         }
 
-        # 确定列数（每行显示2个属性）
+        # 确定列数（每行显示1个属性）
         columns = 1
         total_attrs = len(display_order)
         rows = (total_attrs + columns - 1) // columns  # 计算需要的行数

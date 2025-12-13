@@ -38,19 +38,6 @@ class SlotConfig:
             ]
         }
 
-        self.slot_sub_attributes = [
-            GearSubAttributes.hp_numeric,
-            GearSubAttributes.hp_percentage,
-            GearSubAttributes.attack_numeric,
-            GearSubAttributes.attack_percentage,
-            GearSubAttributes.defence_numeric,
-            GearSubAttributes.defence_percentage,
-            GearSubAttributes.crit_rate,
-            GearSubAttributes.crit_dmg,
-            GearSubAttributes.anomaly_proficiency,
-            GearSubAttributes.pen,
-        ]
-
     def get_slot_main_attribute(self, slot_id: int):
         """获取指定槽位的主属性名称列表"""
         if slot_id not in self.slot_main_attributes:
@@ -58,5 +45,5 @@ class SlotConfig:
         return self.slot_main_attributes[slot_id]
 
     def get_slot_sub_attribute(self):
-        """获取指定槽位的主属性名称列表"""
-        return self.slot_sub_attributes
+        """获取所有副属性的新实例"""
+        return GearSubAttributes.get_all_sub_attributes()

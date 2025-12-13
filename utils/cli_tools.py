@@ -3,7 +3,7 @@
 import sys
 from typing import List
 
-from test.utils.file_processor import FileManagementService
+from utils.file_processor import FileManagementService
 
 
 def init_command():

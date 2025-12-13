@@ -49,21 +49,53 @@ class FinalCharacterStats(CharacterBaseStats):
     gear_bonuses: BaseStats = field(default_factory=BaseStats)
 
     def apply_gear_bonuses(self):
-        """应用驱动盘加成到最终属性"""
+        """应用驱动盘加成到最终属性 - 修复后的版本"""
         print(f"[FinalStats] 应用装备加成:")
 
-        # 遍历所有可能的基础属性
+        # 定义不同类型的属性处理方式
+        direct_percentage_attrs = ["crit_rate", "crit_dmg", "pen_ratio", "energy_regen",
+                                   "physical_dmg_bonus", "fire_dmg_bonus", "ice_dmg_bonus",
+                                   "electric_dmg_bonus", "ether_dmg_bonus"]
+
+        # 基础数值属性（需要基于基础属性计算百分比的）
+        base_value_attrs = ["hp", "attack", "defence", "impact", "anomaly_mastery", "pen"]
+
+        # 遍历所有属性
         for field_name in [f.name for f in fields(BaseStats)]:
             if hasattr(self, field_name) and hasattr(self.gear_bonuses, field_name):
-                base_value = getattr(self, field_name)
                 bonus_value = getattr(self.gear_bonuses, field_name, 0)
 
-                if bonus_value != 0:
-                    # 直接相加（已经处理了百分比转换）
+                if bonus_value == 0:
+                    continue
+
+                base_value = getattr(self, field_name)
+
+                if field_name in direct_percentage_attrs:
+                    # 直接百分比属性：直接相加
                     new_value = base_value + bonus_value
                     setattr(self, field_name, new_value)
+                    print(f"  {field_name}: {base_value:.2%} + {bonus_value:.2%} = {new_value:.2%}")
 
-                    if field_name in ["crit_rate", "crit_dmg", "pen_ratio", "energy_regen"]:
-                        print(f"  {field_name}: {base_value:.2%} + {bonus_value:.2%} = {new_value:.2%}")
+                elif field_name in base_value_attrs and isinstance(bonus_value, float) and bonus_value <= 1:
+                    # 基于基础属性的百分比加成（小数形式）
+                    # 注意：这里假设bonus_value是百分比值（如0.1表示10%）
+                    # 如果装备加成已经计算了实际数值，这里应该直接相加
+                    if hasattr(self.gear_bonuses, f"{field_name}_is_percentage") and getattr(self.gear_bonuses,
+                                                                                             f"{field_name}_is_percentage"):
+                        # 如果标记为百分比，需要乘以基础值
+                        actual_bonus = base_value * bonus_value
+                        new_value = base_value + actual_bonus
+                        setattr(self, field_name, new_value)
+                        print(
+                            f"  {field_name}: {base_value:.0f} + {base_value:.0f} * {bonus_value:.2%} = {new_value:.0f}")
                     else:
+                        # 直接相加（装备加成已经是实际数值）
+                        new_value = base_value + bonus_value
+                        setattr(self, field_name, new_value)
                         print(f"  {field_name}: {base_value:.0f} + {bonus_value:.0f} = {new_value:.0f}")
+
+                else:
+                    # 其他属性（固定值）
+                    new_value = base_value + bonus_value
+                    setattr(self, field_name, new_value)
+                    print(f"  {field_name}: {base_value:.0f} + {bonus_value:.0f} = {new_value:.0f}")

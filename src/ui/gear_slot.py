@@ -12,10 +12,10 @@ from src.models.gear_models import GearPiece
 class GearSlotWidget(ttk.LabelFrame):
     """单个驱动盘槽位组件"""
 
-    def __init__(self, parent, slot_number: int, app):
+    def __init__(self, parent, slot_number: int, main_window):
         super().__init__(parent, text=f"驱动盘 {slot_number}")
         self.slot_number = slot_number - 1  # 转换为0-based索引
-        self.app = app
+        self.main_window = main_window  # 直接使用 main_window 引用
 
         # 存储子组件引用
         self.sub_widgets: List[Dict[str, Any]] = []
@@ -79,7 +79,8 @@ class GearSlotWidget(ttk.LabelFrame):
             sub_frame,
             width=15
         )
-        sub_attr_combo.attributes = config_manager.slot_config.slot_sub_attributes
+        # 使用新的工厂方法获取副属性实例
+        sub_attr_combo.attributes = config_manager.slot_config.get_slot_sub_attribute()
         sub_attr_combo.grid(row=0, column=0, padx=(0, 5), sticky="we")
 
         # 强化次数标签
@@ -130,9 +131,6 @@ class GearSlotWidget(ttk.LabelFrame):
         # 2. 更新副属性下拉框的可选列表
         self.update_sub_attributes_availability()
 
-        # 3. 更新驱动盘数据
-        self.app.update_gear_data()
-
     def on_sub_attr_changed(self, sub_index: int):
         """副属性改变事件处理"""
         if sub_index < 0 or sub_index >= len(self.sub_widgets):
@@ -143,10 +141,9 @@ class GearSlotWidget(ttk.LabelFrame):
 
         if not attr:
             widget["value_label"].config(text="0")
-            # 更新其他副属性的可选列表（因为当前副属性清空了）
+            # 更新其他副属性的可选列表
             self.update_sub_attributes_availability()
-            self.app.update_gear_data()
-            return
+            return  # 移除自动计算
 
         new_enhancement_count = widget["spin_var"].get()
 
@@ -172,9 +169,6 @@ class GearSlotWidget(ttk.LabelFrame):
             # 更新其他副属性的可选列表（因为当前副属性已选择）
             self.update_sub_attributes_availability()
 
-            # 更新数据
-            self.app.update_gear_data()
-
     def calculate_total_enhancement(self) -> int:
         """计算当前总强化次数"""
         total = 0
@@ -194,12 +188,9 @@ class GearSlotWidget(ttk.LabelFrame):
 
         if not attr:
             self.main_value_label.config(text="值: 0")
-            self.app.update_gear_data()
             return
 
-        global_level = self.app.main_enhance_level.get()
-
-        print(f"[GearSlot] 更新主属性: 显示名='{attr.name}', 等级={global_level}")
+        global_level = self.main_window.main_enhance_level.get()
 
         if attr:
             # 计算属性值
@@ -207,15 +198,7 @@ class GearSlotWidget(ttk.LabelFrame):
 
             # 更新显示
             display_value = self.format_attribute_value(attr, value)
-            print(f"[GearSlot] 主属性值: {value}, 显示格式: {display_value}")
             self.main_value_label.config(text=f"值: {display_value}")
-
-            # 更新数据
-            self.app.update_gear_data()
-        else:
-            print(f"[GearSlot] 错误: 显示名 '{attr.name}' 计算失败")
-            self.main_value_label.config(text="值: 0")
-            self.app.update_gear_data()
 
     def update_sub_attributes_availability(self):
         """更新所有副属性下拉框的可选列表"""
@@ -229,7 +212,7 @@ class GearSlotWidget(ttk.LabelFrame):
                 selected_attr_names.append(attr.name)
 
         # 获取所有可用的副属性
-        all_sub_attributes = config_manager.slot_config.slot_sub_attributes
+        all_sub_attributes = config_manager.slot_config.get_slot_sub_attribute()
 
         # 更新每个副属性下拉框
         for i, widget in enumerate(self.sub_widgets):
@@ -301,15 +284,16 @@ class GearSlotWidget(ttk.LabelFrame):
             widget["value_label"].config(text="0")
 
         # 恢复所有副属性的完整列表
-        all_sub_attributes = config_manager.slot_config.slot_sub_attributes
+        from src.config.manager import config_manager
+        all_sub_attributes = config_manager.slot_config.get_slot_sub_attribute()
         for widget in self.sub_widgets:
             widget["combo"].attributes = all_sub_attributes
 
-        # 更新数据
-        self.app.update_gear_data()
+        # 触发重新计算
+        self.main_window.recalculate_final_stats()
 
     def get_gear_piece(self) -> GearPiece:
-        """获取当前配置对应的GearPiece对象"""
+        """获取当前配置对应的GearPiece对象 - 修复版本"""
         main_attr = self.main_attr_combo.get_selected_attribute()
 
         # 收集所有副属性（包含属性和强化等级）
@@ -317,16 +301,24 @@ class GearSlotWidget(ttk.LabelFrame):
         for i, widget in enumerate(self.sub_widgets):
             sub_attr = widget["combo"].get_selected_attribute()
             if sub_attr:
+                # 这里sub_attr已经是独立的实例，可以直接修改
                 sub_attr.enhancement_level = widget["spin_var"].get()
                 sub_attributes.append(sub_attr)
 
-        # 根据你的GearPiece结构创建对象
+        # 创建GearPiece对象
         gear_piece = GearPiece(
             slot_index=self.slot_number,
-            level=self.app.main_enhance_level.get(),
-            main_attribute=main_attr,  # 直接存储Attribute对象
-            sub_attributes=sub_attributes  # 存储包含Attribute对象的列表
+            level=self.main_window.main_enhance_level.get(),
+            main_attribute=main_attr,
+            sub_attributes=sub_attributes
         )
+
+        # 添加调试信息
+        print(f"[GearSlot] 获取驱动盘数据 - 槽位 {self.slot_number}:")
+        print(f"  主属性: {main_attr.name if main_attr else '无'}")
+        print(f"  强化等级: {self.main_window.main_enhance_level.get()}")
+        for i, sub_attr in enumerate(sub_attributes):
+            print(f"  副属性{i+1}: {sub_attr.name}, 强化等级: {sub_attr.enhancement_level}, 计算值: {sub_attr.calculate_value_at_enhancement_level()}")
 
         return gear_piece
 
@@ -348,10 +340,10 @@ class GearSlotWidget(ttk.LabelFrame):
 
 
 class GearSlotManager:
-    """驱动盘槽位管理器"""
+    """驱动盘槽位管理器 - 适配新架构"""
 
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, main_window):
+        self.main_window = main_window
         self.slot_widgets: List[GearSlotWidget] = []
 
     def create_slots(self, parent, slot_count: int = 6):
@@ -359,7 +351,7 @@ class GearSlotManager:
         self.slot_widgets.clear()
 
         for i in range(slot_count):
-            slot_widget = GearSlotWidget(parent, i + 1, self.app)
+            slot_widget = GearSlotWidget(parent, i + 1, self.main_window)
             self.slot_widgets.append(slot_widget)
 
         return self.slot_widgets
@@ -372,3 +364,5 @@ class GearSlotManager:
         """重置所有槽位"""
         for slot_widget in self.slot_widgets:
             slot_widget.reset()
+
+        self.main_window.recalculate_final_stats()

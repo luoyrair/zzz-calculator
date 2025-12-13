@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 from src.config.manager import config_manager
-from test.utils.data_downloader import DownloadService
+from utils.data_downloader import DownloadService
 
 
 class FileProcessor:
