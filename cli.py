@@ -6,7 +6,7 @@ import os
 # 添加 src 目录到 Python 路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from src import main
+from utils.cli_tools import main
 
 if __name__ == "__main__":
     main()

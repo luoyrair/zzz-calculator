@@ -1,7 +1,5 @@
-# src/config/file.py
 """文件路径配置"""
 from pathlib import Path
-from typing import Dict, Any
 
 
 class FileConfig:
@@ -84,13 +82,3 @@ class FileConfig:
     def character_file_exists(self, character_id: str) -> bool:
         """检查角色文件是否存在"""
         return self.get_character_file_path(character_id).exists()
-
-    def validate(self) -> bool:
-        try:
-            return all([
-                self.base_dir.exists(),
-                self.characters_dir.exists(),
-                self.weapons_dir.exists()
-            ])
-        except Exception:
-            return False
