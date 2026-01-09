@@ -2,9 +2,7 @@
 数据处理工具函数
 """
 
-import json
-from typing import Dict, List, Any, Union
-from pathlib import Path
+from typing import Dict, Any
 
 
 class DataUtils:
@@ -28,81 +26,12 @@ class DataUtils:
         sanitized = {k: v for k, v in data.items() if v is not None}
 
         # 确保必要字段存在
-        if 'Id' not in sanitized:
-            sanitized['Id'] = 0
-        if 'Name' not in sanitized:
-            sanitized['Name'] = '未知'
+        if 'id' not in sanitized:
+            sanitized['id'] = 0
+        if '名称' not in sanitized:
+            sanitized['名称'] = '未知'
 
         return sanitized
-
-    @staticmethod
-    def extract_by_pattern(text: str, patterns: List[Union[str, Dict]]) -> List[Dict[str, Any]]:
-        """根据多个模式从文本中提取信息"""
-        import re
-        results = []
-
-        for pattern in patterns:
-            if isinstance(pattern, dict):
-                regex = pattern.get('pattern', '')
-                name = pattern.get('name', '')
-                match = re.search(regex, text)
-                if match:
-                    results.append({
-                        'name': name,
-                        'match': match.group(),
-                        'groups': match.groups()
-                    })
-            elif isinstance(pattern, str):
-                matches = re.findall(pattern, text)
-                for match in matches:
-                    results.append({
-                        'pattern': pattern,
-                        'match': match
-                    })
-
-        return results
-
-    @staticmethod
-    def ensure_dir_exists(directory: Union[str, Path]) -> Path:
-        """确保目录存在，如果不存在则创建"""
-        if isinstance(directory, str):
-            directory = Path(directory)
-
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
-
-    @staticmethod
-    def load_json_file(file_path: Union[str, Path], default: Any = None) -> Any:
-        """加载JSON文件"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return default
-
-    @staticmethod
-    def save_json_file(file_path: Union[str, Path], data: Any, indent: int = 2) -> bool:
-        """保存数据到JSON文件"""
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=indent)
-            return True
-        except (IOError, TypeError):
-            return False
-
-    @staticmethod
-    def filter_data_by_conditions(data_list: List[Dict], conditions: Dict[str, Any]) -> List[Dict]:
-        """根据条件过滤数据列表"""
-        filtered = []
-        for item in data_list:
-            match = True
-            for key, value in conditions.items():
-                if item.get(key) != value:
-                    match = False
-                    break
-            if match:
-                filtered.append(item)
-        return filtered
 
     @staticmethod
     def normalize_value(value: Any, value_type: str = 'float') -> Any:

@@ -2,7 +2,7 @@
 驱动盘相关工具函数
 """
 
-from typing import List, Dict
+from typing import List
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -126,51 +126,3 @@ class GearUtils:
         if 0 <= index < len(main_attrs):
             return main_attrs[index]
         return None
-
-    @staticmethod
-    def get_main_attribute_display_name(position: int, index: int) -> str:
-        """获取主属性显示名称"""
-        attr = GearUtils.get_main_attribute_by_index(position, index)
-        if attr:
-            return attr.name
-        return "未知属性"
-
-    @staticmethod
-    def get_gear_piece_summary(position: int, main_attr_idx: int, sub_attributes: Dict) -> str:
-        """获取驱动盘摘要信息"""
-        position_name = GearUtils.get_position_name(position)
-        main_attr = GearUtils.get_main_attribute_by_index(position, main_attr_idx)
-
-        if not main_attr:
-            return f"{position_name}: 未选择"
-
-        summary = f"{position_name}: {main_attr.name}"
-
-        if sub_attributes:
-            sub_count = len(sub_attributes)
-            summary += f" (+{sub_count}副属性)"
-
-        return summary
-
-    @staticmethod
-    def validate_gear_position(position: int) -> bool:
-        """验证驱动盘位置是否有效"""
-        return 0 <= position <= 5
-
-    @staticmethod
-    def get_allowed_main_attribute_count(position: int) -> int:
-        """获取允许的主属性数量"""
-        attrs = GearUtils.get_main_attributes_by_position(position)
-        return len(attrs)
-
-    @staticmethod
-    def create_gear_position_mapping() -> Dict[int, str]:
-        """创建驱动盘位置映射"""
-        return {
-            0: "1号盘",
-            1: "2号盘",
-            2: "3号盘",
-            3: "4号盘",
-            4: "5号盘",
-            5: "6号盘"
-        }

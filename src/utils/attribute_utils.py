@@ -10,31 +10,13 @@ from src.core.attributes import (
     AttributeName,
     character_attribute, breakthrough_attribute, core_passive_attribute,
     weapon_base_attribute, weapon_talents_attribute,
-    gear_main_attribute, gear_sub_attribute, gear_set_effect_attribute,
+    gear_set_effect_attribute,
     character_recommend_attribute, gear_recommend_sub_attribute,
 )
 
 
 class AttributeUtils:
     """属性工具类"""
-
-    @staticmethod
-    def get_character_attribute_id_map() -> Dict[int, str]:
-        """获取角色属性ID映射"""
-        return {
-            111: AttributeName.HP,
-            121: AttributeName.ATK,
-            122: AttributeName.IMP,
-            123: AttributeName.S_F,
-            131: AttributeName.DEF,
-            201: AttributeName.C_R,
-            211: AttributeName.C_D,
-            231: AttributeName.PEN_R,
-            232: AttributeName.PEN,
-            305: AttributeName.E_R,
-            312: AttributeName.A_P,
-            314: AttributeName.A_M,
-        }
 
     @staticmethod
     def get_weapon_attribute_patterns() -> List[Dict[str, Any]]:
@@ -129,16 +111,6 @@ class AttributeUtils:
     def create_weapon_talent_attribute_list() -> List:
         """创建武器天赋属性列表的深拷贝"""
         return copy.deepcopy(weapon_talents_attribute)
-
-    @staticmethod
-    def create_gear_main_attribute_list() -> List:
-        """创建驱动盘主属性列表的深拷贝"""
-        return copy.deepcopy(gear_main_attribute)
-
-    @staticmethod
-    def create_gear_sub_attribute_list() -> List:
-        """创建驱动盘副属性列表的深拷贝"""
-        return copy.deepcopy(gear_sub_attribute)
 
     @staticmethod
     def create_gear_set_effect_attribute_list() -> List:

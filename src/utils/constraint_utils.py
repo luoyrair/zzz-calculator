@@ -111,16 +111,3 @@ class ConstraintUtils:
         elif refinement == 5:
             return 51, 60
         return 1, 60
-
-    # 验证函数
-    @staticmethod
-    def validate_character_level_and_breakthrough(level: int, breakthrough: int) -> bool:
-        """验证角色等级和突破等级是否匹配"""
-        expected_breakthrough = ConstraintUtils.get_breakthrough_by_character_level(level)
-        return breakthrough == expected_breakthrough
-
-    @staticmethod
-    def validate_weapon_level_and_refinement(level: int, refinement: int) -> bool:
-        """验证武器等级和精炼等级是否匹配"""
-        expected_refinement = ConstraintUtils.get_refinement_by_weapon_level(level)
-        return refinement == expected_refinement

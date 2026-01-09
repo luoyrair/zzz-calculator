@@ -131,12 +131,13 @@ class CalculationUtils:
             final_value = base_value + flat_bonus
 
             # 对于非百分比属性，应用百分比加成
-            if attr_name not in ['穿透率', '暴击率', '暴击伤害',
-                                 '物理伤害加成', '火属性伤害加成', '冰属性伤害加成',
-                                 '电属性伤害加成', '以太伤害加成']:
-                percentage = percentage_bonuses.get(attr_name, 0)
-                value_with_percentage = math.ceil(base_value * percentage)
-                final_value += value_with_percentage
+            if percentage_bonuses.get(attr_name, 0) > 0:
+                if attr_name not in ['穿透率', '暴击率', '暴击伤害',
+                                     '物理伤害加成', '火属性伤害加成', '冰属性伤害加成',
+                                     '电属性伤害加成', '以太伤害加成']:
+                    percentage = percentage_bonuses.get(attr_name, 0)
+                    value_with_percentage = math.ceil(base_value * percentage)
+                    final_value += value_with_percentage
 
             result[attr_name] = final_value
 
@@ -147,11 +148,6 @@ class CalculationUtils:
             result[passive_data["target"]] = int(result[passive_data["target"]])
 
         return result
-
-    @staticmethod
-    def calculate_percentage_bonus(base_value: float, percentage: float) -> float:
-        """计算百分比加成值"""
-        return base_value * percentage
 
     @staticmethod
     def calculate_enhanced_value(base_value: float, growth: float, level: int) -> float:
