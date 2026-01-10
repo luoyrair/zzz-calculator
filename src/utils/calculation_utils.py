@@ -12,8 +12,8 @@ class CalculationUtils:
     """计算工具类"""
 
     @staticmethod
-    def get_cache_key(character, weapon=None, gear_sets=None, gear_pieces=None) -> str:
-        """生成缓存键 - 包含副属性信息"""
+    def get_cache_key(character, weapon=None, gear_sets=None, gear_pieces=None, include_talent: bool = False) -> str:
+        """生成缓存键 - 包含副属性信息和是否包含天赋属性"""
         key_parts = []
 
         if character:
@@ -21,7 +21,9 @@ class CalculationUtils:
                 f"character_{character.id}_{character.level}_{character.breakthrough}_{character.core_passive}")
 
         if weapon:
-            key_parts.append(f"weapon_{weapon.id}_{weapon.level}_{weapon.refinement}")
+            # 在缓存键中包含是否包含天赋属性
+            talent_info = f"talent{weapon.talent}" if include_talent else "no_talent"
+            key_parts.append(f"weapon_{weapon.id}_{weapon.level}_{weapon.refinement}_{talent_info}")
 
         if gear_sets:
             set_ids = sorted(gear_sets.keys())
@@ -45,6 +47,10 @@ class CalculationUtils:
 
                 if piece_key:
                     key_parts.append(f"gear{pos}_{'_'.join(piece_key)}")
+
+        # 在最后添加是否包含天赋属性的标记
+        if weapon:
+            key_parts.append(f"include_talent_{include_talent}")
 
         return "|".join(key_parts)
 

@@ -1,14 +1,104 @@
 """
-格式化工具函数
+格式化工具函数 - 添加设置检查
 """
 
 from typing import Any
 
 from src.config.constants import ColorConstants
+from src.config.settings import settings_manager
 
 
 class FormatUtils:
     """格式化工具类"""
+
+    @staticmethod
+    def generate_placeholder_data(character=None):
+        """动态生成占位数据（按需调用）"""
+
+        # 获取显示设置
+        settings = settings_manager.get_settings()
+        basic_content_mode = settings.display.basic_attributes_display_mode
+
+        print(f"[DEBUG LeftPanel] 基础属性内容模式: {basic_content_mode} (1=角色基础属性, 2=所有属性)")
+
+        # 1. 基础属性（所有角色都有的）
+        basic_attrs = [
+            ("生命值", "0"),
+            ("攻击力", "0"),
+            ("防御力", "0"),
+            ("冲击力", "0"),
+            ("暴击率", "0.0%"),
+            ("暴击伤害", "0.0%"),
+            ("异常掌控", "0"),
+            ("异常精通", "0"),
+        ]
+
+        if basic_content_mode == 2:
+            # 模式2：显示所有属性
+            basic_attrs.extend([
+                ("穿透率", "0.0%"),
+                ("穿透值", "0"),
+                ("能量自动回复", "0.0"),
+                ("物理伤害加成", "0.0%"),
+                ("火属性伤害加成", "0.0%"),
+                ("冰属性伤害加成", "0.0%"),
+                ("电属性伤害加成", "0.0%"),
+                ("以太伤害加成", "0.0%"),
+                ("贯穿力", "0"),
+                ("闪能自动积蓄", "0.0"),
+                ("贯穿伤害加成", "0.0%"),
+            ])
+        elif character and basic_content_mode == 1:
+            # 模式1：显示角色基础属性，根据角色类型添加特定属性
+            if character.weapon_type == "命破":
+                # 命破角色：加上贯穿力、闪能自动积蓄、对应的属性伤害加成
+                basic_attrs.extend([("贯穿力", "0"), ("闪能自动积蓄", "0.0"), ])
+            else:
+                # 非命破角色：加上穿透率、能量自动回复、穿透值、对应的属性伤害加成
+                basic_attrs.extend([("穿透率", "0.0%"), ("能量自动回复", "0.0"), ("穿透值", "0"), ])
+
+            # 添加对应的属性伤害加成
+            basic_attrs.append((f"{character.element_type}伤害加成", "0.0%"))
+        else:
+            # 没有角色或模式1但没有角色时，显示基础属性
+            pass
+
+        # 格式：(name, value, name_color, value_color)
+        basic_data = [
+            (name, value, ColorConstants.BASIC_COLOR, ColorConstants.BASIC_ATTRIBUTE_COLOR)
+            for name, value in basic_attrs
+        ]
+
+        character_data = [
+            (name, value, ColorConstants.BASIC_COLOR, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
+            for name, value in basic_attrs
+        ]
+
+        print(f"[DEBUG LeftPanel] 生成占位数据: {len(basic_attrs)} 个属性")
+        print(
+            f"[DEBUG LeftPanel] 角色类型: {character.weapon_type if character else '无'}, 元素类型: {character.element_type if character else '无'}")
+
+        return basic_data, character_data
+
+    def format_stats_with_recommendation(self, attributes: dict, base_color: str):
+        """格式化属性数据，标记推荐属性（只标记属性名）"""
+        formatted = []
+
+        for name, value in attributes.items():
+            formatted_value = self.format_attribute_display(name, value)
+
+            # 检查是否为推荐属性
+            is_recommended = self.is_recommended_attribute(name)
+
+            # 如果为推荐属性，属性名使用橙色，否则使用基础颜色
+            if is_recommended:
+                # 属性名用橙色，属性值用基础颜色
+                formatted.append((name, formatted_value, ColorConstants.RECOMMENDED_COLOR, base_color))
+            else:
+                # 属性名和属性值都用基础颜色
+                formatted.append((name, formatted_value, ColorConstants.BASIC_COLOR, base_color))
+
+        return formatted
 
     @staticmethod
     def format_attribute_display(name: str, value: Any) -> str:
@@ -55,8 +145,19 @@ class FormatUtils:
         return ColorConstants.RARITY_COLORS.get(rarity, "#808080")
 
     @staticmethod
-    def is_recommended_attribute(attribute_name: str, recommend_data: Any) -> bool:
-        """检查属性是否为推荐属性"""
+    def is_recommended_attribute(attribute_name: str) -> bool:
+        """检查属性是否为推荐属性 - 添加设置检查"""
+
+        from src.core.state_manager import StateManager
+        state = StateManager.instance().get_state()
+
+        # 直接从状态管理器获取推荐数据
+        recommend_data = state.recommend_data if state.current_character else None
+
+        # 首先检查设置：是否使用原始推荐数据
+        settings = settings_manager.get_settings()
+        if not settings.auto_select.use_original_recommendations:
+            return False
 
         if not recommend_data:
             return False

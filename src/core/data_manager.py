@@ -8,7 +8,7 @@ from src.config.constants import PathConstants
 from src.parsers.character_parser import parse_character_data
 from src.parsers.gear_set_parser import parse_gear_set_data
 from src.parsers.weapon_parser import parse_weapon_data
-from .models import Character, Weapon, GearSet
+from src.core.models import Character, Weapon, GearSet
 
 
 class SimpleDataManager:

@@ -44,7 +44,7 @@ class Attribute:
 
 @dataclass
 class Character:
-    """简化版角色模型"""
+    """角色模型"""
     id: int
     name: str
     rarity: int

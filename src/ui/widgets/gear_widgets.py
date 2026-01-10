@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 from src.core.attributes import gear_sub_attribute
 from src.utils.format_utils import FormatUtils
 from src.utils.gear_utils import GearUtils
+from src.config.settings import settings_manager
 
 
 def get_sub_attribute_by_index(index: int):
@@ -30,10 +31,13 @@ class GearSetConfigWidget(QWidget):
         super().__init__(parent)
         self.data_manager = data_manager
 
+        # 获取状态管理器实例
+        from src.core.state_manager import StateManager
+        self.state = StateManager.instance()
+
         # 状态变量
         self.set_options = []  # 存储所有套装选项 (id, name)
         self.updating = False  # 防止递归调用
-        self.recommend_data = None  # 推荐数据
 
         # 初始化
         self._init_ui()
@@ -66,6 +70,10 @@ class GearSetConfigWidget(QWidget):
 
     def _connect_signals(self):
         """连接信号"""
+        # 状态管理器信号
+        self.state.state_changed.connect(self._on_state_changed)
+
+        # UI信号
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
     # ========== 套装模式UI创建方法 ==========
@@ -171,27 +179,37 @@ class GearSetConfigWidget(QWidget):
         for combo in self._get_all_set_combos():
             self._populate_combo_without_colors(combo)
 
-    def _populate_combo_with_colors(self, combo, is_four=True):
-        """为组合框填充带颜色的选项（区分4件套和2件套）"""
+    def _populate_combo_with_colors(self, combo, is_four=True, recommend_data=None):
+        """为组合框填充带颜色的选项"""
         if not self.set_options:
             return
 
         combo.blockSignals(True)
-
         try:
             current_id = combo.currentData()
             combo.clear()
             combo.addItem("请选择套装", "")
 
-            # 获取推荐套装ID
-            recommended_set_id = self._get_recommended_set_id(is_four)
-
             # 添加所有套装选项
             for set_id, set_name in self.set_options:
-                is_recommended = (recommended_set_id and str(set_id) == recommended_set_id)
-                GearUtils.add_set_item_to_combo(combo, set_id, set_name, is_recommended)
+                is_recommended = False
+                if recommend_data and hasattr(recommend_data, 'gear_set'):
+                    gear_set_data = recommend_data.gear_set
+                    if gear_set_data:
+                        if is_four and hasattr(gear_set_data, 'Slot4'):
+                            is_recommended = str(set_id) == str(gear_set_data.Slot4)
+                        elif not is_four and hasattr(gear_set_data, 'Slot2'):
+                            is_recommended = str(set_id) == str(gear_set_data.Slot2)
 
-            # 恢复当前选择
+                if is_recommended:
+                    display_text = f"{set_name}"
+                    combo.addItem(display_text, set_id)
+                    index = combo.count() - 1
+                    combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
+                else:
+                    combo.addItem(set_name, set_id)
+
+            # 恢复选择
             GearUtils.restore_combo_selection(combo, current_id)
 
         finally:
@@ -217,6 +235,11 @@ class GearSetConfigWidget(QWidget):
             combo.blockSignals(False)
 
     # ========== 事件处理方法 ==========
+
+    def _on_state_changed(self):
+        """状态变化时更新UI颜色"""
+        self._update_set_combo_colors()
+
 
     def _on_mode_changed(self, index):
         """处理模式变化"""
@@ -300,10 +323,16 @@ class GearSetConfigWidget(QWidget):
 
     def _is_set_recommended(self, combo, set_id):
         """检查套装是否为推荐套装"""
-        if not self.recommend_data or not hasattr(self.recommend_data, 'gear_set'):
+        # 直接从状态管理器获取当前状态
+        current_state = self.state.get_state()
+
+        # 获取推荐数据
+        recommend_data = current_state.recommend_data
+
+        if not recommend_data or not hasattr(recommend_data, 'gear_set'):
             return False
 
-        gear_set_data = self.recommend_data.gear_set
+        gear_set_data = recommend_data.gear_set
         if not gear_set_data:
             return False
 
@@ -316,32 +345,48 @@ class GearSetConfigWidget(QWidget):
 
     # ========== 推荐数据管理方法 ==========
 
-    def set_recommend_data(self, recommend_data):
-        """设置推荐数据"""
-        self.recommend_data = recommend_data
-        if self.mode_combo.currentText() == "4+2":
-            self.update_set_combo_colors()
-
-    def update_set_combo_colors(self):
+    def _update_set_combo_colors(self):
         """更新套装组合框的颜色显示"""
         if self.mode_combo.currentText() != "4+2":
             return
 
-        if not self.recommend_data:
+        # 直接从状态管理器获取当前状态
+        current_state = self.state.get_state()
+
+        # 获取推荐数据
+        recommend_data = current_state.recommend_data if current_state.current_character else None
+
+        print(f"[DEBUG GearSetConfig] update_set_combo_colors: recommend_data={recommend_data}")
+
+        if not recommend_data:
+            # 如果没有推荐数据，清除所有颜色标记
+            if hasattr(self, 'four_set_combo'):
+                print("[DEBUG GearSetConfig] 清除4件套组合框颜色")
+                self._populate_combo_without_colors(self.four_set_combo)
+
+            if hasattr(self, 'two_set_combo'):
+                print("[DEBUG GearSetConfig] 清除2件套组合框颜色")
+                self._populate_combo_without_colors(self.two_set_combo)
             return
 
+        # 有推荐数据，正常显示颜色
         if hasattr(self, 'four_set_combo'):
-            self._populate_combo_with_colors(self.four_set_combo, is_four=True)
-
+            self._populate_combo_with_colors(self.four_set_combo, is_four=True, recommend_data=recommend_data)
         if hasattr(self, 'two_set_combo'):
-            self._populate_combo_with_colors(self.two_set_combo, is_four=False)
+            self._populate_combo_with_colors(self.two_set_combo, is_four=False, recommend_data=recommend_data)
 
     def _get_recommended_set_id(self, is_four=True):
         """获取推荐套装ID"""
-        if not self.recommend_data or not hasattr(self.recommend_data, 'gear_set'):
+        # 直接从状态管理器获取当前状态
+        current_state = self.state.get_state()
+
+        # 获取推荐数据
+        recommend_data = current_state.recommend_data
+
+        if not recommend_data or not hasattr(recommend_data, 'gear_set'):
             return None
 
-        gear_set_data = self.recommend_data.gear_set
+        gear_set_data = recommend_data.gear_set
         if not gear_set_data:
             return None
 
@@ -411,11 +456,14 @@ class GearPieceEditor(QFrame):
         super().__init__(parent)
         self.position = position
 
+        # 获取状态管理器实例
+        from src.core.state_manager import StateManager
+        self.state = StateManager.instance()
+
         # 状态变量
         self.selected_subs = []
         self.updating = False
         self.global_enhance_level = 15
-        self.recommend_data = None
 
         # 初始化
         self._init_ui()
@@ -560,6 +608,7 @@ class GearPieceEditor(QFrame):
     def _connect_signals(self):
         """连接信号"""
         self.main_combo.currentIndexChanged.connect(self._on_main_attr_changed)
+        self.state.character_changed.connect(self._on_state_character_changed)
 
         # 副属性组合框信号
         for i, combo in enumerate(self.sub_combos):
@@ -705,10 +754,14 @@ class GearPieceEditor(QFrame):
             self.main_combo.clear()
             self.main_combo.addItem("请选择主属性", -1)
 
+            # 直接从状态管理器获取当前状态
+            current_state = self.state.get_state()
+            recommend_data = current_state.recommend_data
+
             # 获取推荐主属性
             recommended_main = None
-            if self.recommend_data and hasattr(self.recommend_data, 'gear_mian_attribute'):
-                recommended_main = self.recommend_data.gear_mian_attribute.get(self.position)
+            if recommend_data and hasattr(recommend_data, 'gear_mian_attribute'):
+                recommended_main = recommend_data.gear_mian_attribute.get(self.position)
 
             # 添加所有主属性
             for idx, main_attr in enumerate(main_attrs):
@@ -817,10 +870,14 @@ class GearPieceEditor(QFrame):
             combo.clear()
             combo.addItem("请选择", -1)
 
+            # 直接从状态管理器获取当前状态
+            current_state = self.state.get_state()
+            recommend_data = current_state.recommend_data
+
             # 获取推荐的副属性
             recommended_sub = None
-            if self.recommend_data and hasattr(self.recommend_data, 'gear_sub_attribute'):
-                recommended_sub = self.recommend_data.gear_sub_attribute
+            if recommend_data and hasattr(recommend_data, 'gear_sub_attribute'):
+                recommended_sub = recommend_data.gear_sub_attribute
 
             for sub_attr in sub_attrs:
                 try:
@@ -919,24 +976,48 @@ class GearPieceEditor(QFrame):
 
     # ========== 推荐数据管理方法 ==========
 
-    def set_recommend_data(self, recommend_data):
-        """设置推荐数据"""
-        self.recommend_data = recommend_data
+    def _on_state_character_changed(self, character):
+        """处理角色变化 - 更新推荐显示"""
+        print(f"[DEBUG GearEditor{self.position}] 角色变化: {character.name if character else 'None'}")
         self._update_attribute_colors()
 
     def _update_attribute_colors(self):
         """更新属性选择的颜色显示"""
+        print(f"[DEBUG GearEditor{self.position}] _update_attribute_colors")
         self._update_main_combo_colors()
         self.update_sub_combo_colors()
 
     def _update_main_combo_colors(self):
         """更新主属性组合框的颜色显示"""
-        if not self.recommend_data or not hasattr(self.recommend_data, 'gear_mian_attribute'):
+        # 直接从状态管理器获取当前状态
+        current_state = self.state.get_state()
+        recommend_data = current_state.recommend_data
+
+        # 检查设置：是否使用原始推荐数据
+        settings = settings_manager.get_settings()
+        if not settings.auto_select.use_original_recommendations:
+            print(f"[DEBUG GearEditor{self.position}] 推荐数据已禁用，清除主属性颜色")
+            # 清除所有颜色标记，恢复为黑色
+            for i in range(self.main_combo.count()):
+                self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
 
-        recommended_main = self.recommend_data.gear_mian_attribute.get(self.position)
-        if not recommended_main:
+        if not recommend_data or not hasattr(recommend_data, 'gear_mian_attribute'):
+            print(f"[DEBUG GearEditor{self.position}] 没有推荐数据，清除主属性颜色")
+            # 清除所有颜色标记
+            for i in range(self.main_combo.count()):
+                self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
+
+        recommended_main = recommend_data.gear_mian_attribute.get(self.position)
+        if not recommended_main:
+            print(f"[DEBUG GearEditor{self.position}] 该位置没有推荐主属性")
+            # 清除所有颜色标记
+            for i in range(self.main_combo.count()):
+                self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
+            return
+
+        print(f"[DEBUG GearEditor{self.position}] 推荐主属性: {recommended_main.name}")
 
         for i in range(self.main_combo.count()):
             data = self.main_combo.itemData(i)
@@ -947,18 +1028,45 @@ class GearPieceEditor(QFrame):
                     is_recommended = attr.name == recommended_main.name
 
                     if is_recommended:
+                        print(f"[DEBUG GearEditor{self.position}] 设置索引 {i} 为橙色")
                         self.main_combo.setItemData(i, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
                     else:
                         self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
 
     def update_sub_combo_colors(self):
         """更新副属性组合框的颜色显示"""
-        if not self.recommend_data or not hasattr(self.recommend_data, 'gear_sub_attribute'):
+        # 直接从状态管理器获取当前状态
+        current_state = self.state.get_state()
+        recommend_data = current_state.recommend_data
+
+        # 检查设置：是否使用原始推荐数据
+        settings = settings_manager.get_settings()
+        if not settings.auto_select.use_original_recommendations:
+            print(f"[DEBUG GearEditor{self.position}] 推荐数据已禁用，清除副属性颜色")
+            # 清除所有颜色标记，恢复为黑色
+            for combo in self.sub_combos:
+                for i in range(combo.count()):
+                    combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
 
-        recommended_sub = self.recommend_data.gear_sub_attribute
-        if not recommended_sub:
+        if not recommend_data or not hasattr(recommend_data, 'gear_sub_attribute'):
+            print(f"[DEBUG GearEditor{self.position}] 没有推荐数据，清除副属性颜色")
+            # 清除所有颜色标记
+            for combo in self.sub_combos:
+                for i in range(combo.count()):
+                    combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
+
+        recommended_sub = recommend_data.gear_sub_attribute
+        if not recommended_sub:
+            print(f"[DEBUG GearEditor{self.position}] 没有推荐副属性")
+            # 清除所有颜色标记
+            for combo in self.sub_combos:
+                for i in range(combo.count()):
+                    combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
+            return
+
+        print(f"[DEBUG GearEditor{self.position}] 推荐副属性: {recommended_sub.name}")
 
         for combo in self.sub_combos:
             for i in range(combo.count()):
@@ -966,6 +1074,7 @@ class GearPieceEditor(QFrame):
                 if data is not None and data >= 0:
                     sub_attr = get_sub_attribute_by_index(data)
                     if sub_attr and sub_attr.name == recommended_sub.name and sub_attr.value_type == recommended_sub.value_type:
+                        print(f"[DEBUG GearEditor{self.position}] 设置副属性组合框索引 {i} 为橙色")
                         combo.setItemData(i, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
                     else:
                         combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)

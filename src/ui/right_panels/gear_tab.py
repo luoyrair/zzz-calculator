@@ -199,7 +199,6 @@ class GearTab(QWidget):
         self._reset_gear_set_config()
         self._reset_enhance_level()
         self._reset_all_gear_editors()
-        self._clear_app_core_gear_config()
 
     def _reset_gear_set_config(self):
         """重置套装配置"""
@@ -213,12 +212,6 @@ class GearTab(QWidget):
         """重置所有驱动盘编辑器"""
         for editor in self.gear_editors.values():
             editor.clear_all()
-
-    def _clear_app_core_gear_config(self):
-        """清空应用核心中的驱动盘配置"""
-        self.app_core.current_gear_sets.clear()
-        self.app_core.current_gear_pieces.clear()
-        self.app_core.calculate_and_update()
 
     def _on_load_preset(self):
         """加载预设配置"""

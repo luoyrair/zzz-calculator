@@ -4,12 +4,61 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QSplitter, QGroupBox,
-    QFormLayout
+    QFormLayout, QLabel
 )
 
 from src.config.constants import ColorConstants
+from src.config.settings import settings_manager
 from src.utils.format_utils import FormatUtils
 from src.ui.widgets.attribute_display import AttributeDisplay
+
+
+def _create_placeholder_label():
+    """创建占位符标签（工具函数）"""
+    placeholder_label = QLabel("请选择角色查看属性")
+    placeholder_label.setFont(QFont("Microsoft YaHei", 12, QFont.Weight.Bold))
+    placeholder_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    placeholder_label.setStyleSheet("color: #95a5a6;")
+    placeholder_label.setVisible(True)  # 初始显示
+
+    return placeholder_label
+
+
+def _create_stats_widget_with_placeholder(title: str):
+    """创建带占位符的属性显示部件（工具函数）
+
+    Args:
+        title: 分组框标题
+
+    Returns:
+        tuple: (widget, group_box, placeholder_label, stats_display)
+    """
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.setContentsMargins(5, 5, 5, 5)
+
+    # 创建分组框
+    group_box = QGroupBox(title)
+    group_box.setFont(QFont("Microsoft YaHei", 10, QFont.Weight.Bold))
+
+    group_layout = QFormLayout()
+    group_layout.setVerticalSpacing(8)
+    group_layout.setHorizontalSpacing(15)
+
+    # 创建占位符标签
+    placeholder_label = _create_placeholder_label()
+
+    # 创建属性显示组件
+    stats_display = AttributeDisplay()
+    stats_display.set_attributes([])
+    stats_display.setVisible(False)  # 初始隐藏
+
+    group_layout.addRow(placeholder_label)
+    group_layout.addRow(stats_display)
+    group_box.setLayout(group_layout)
+    layout.addWidget(group_box)
+
+    return widget, group_box, placeholder_label, stats_display
 
 
 class LeftPanel(QWidget):
@@ -18,41 +67,16 @@ class LeftPanel(QWidget):
     def __init__(self, app_core):
         super().__init__()
         self.app_core = app_core
-        self.current_character = None  # 存储当前角色
-        self.recommend_data = None     # 存储角色推荐数据
 
-        self._init_placeholder_data()
+        # 获取状态管理器实例
+        from src.core.state_manager import StateManager
+        self.state = StateManager.instance()
+
         self._init_ui()
         self._connect_signals()
 
-    def _init_placeholder_data(self):
-        """初始化占位数据"""
-        basic_placeholder_data = [
-            ("生命值", "0"),
-            ("攻击力", "0"),
-            ("防御力", "0"),
-            ("冲击力", "0"),
-            ("暴击率", "0.0%"),
-            ("暴击伤害", "0.0%"),
-            ("异常掌控", "0"),
-            ("异常精通", "0"),
-            ("穿透率", "0.0%"),
-            ("穿透值", "0"),
-            ("能量自动回复", "0.0"),
-            ("闪能自动积蓄", "0.0"),
-            ("贯穿力", "0"),
-            ("物理伤害加成", "0.0%"),
-            ("火属性伤害加成", "0.0%"),
-            ("冰属性伤害加成", "0.0%"),
-            ("电属性伤害加成", "0.0%"),
-            ("以太伤害加成", "0.0%"),
-            ("贯穿伤害加成", "0.0%"),
-        ]
-        # 格式：(name, value, name_color, value_color)
-        self.basic_placeholder_data = [(name, value, ColorConstants.BASIC_COLOR, ColorConstants.BASIC_ATTRIBUTE_COLOR)
-                                       for name, value in basic_placeholder_data]
-        self.character_placeholder_data = [(name, value, ColorConstants.BASIC_COLOR, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
-                                           for name, value in basic_placeholder_data]
+        # 初始根据设置显示/隐藏基础属性区域
+        self._update_ui_visibility()
 
     def _init_ui(self):
         """初始化UI"""
@@ -60,7 +84,7 @@ class LeftPanel(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(10)
 
-        splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
 
         # 上区域：角色基础属性
         self.basic_stats_widget = self._create_basic_stats_widget()
@@ -68,53 +92,31 @@ class LeftPanel(QWidget):
         # 下区域：角色面板属性
         self.character_stats_widget = self._create_character_stats_widget()
 
-        splitter.addWidget(self.basic_stats_widget)
-        splitter.addWidget(self.character_stats_widget)
-        splitter.setSizes([300, 300])
+        self.splitter.addWidget(self.basic_stats_widget)
+        self.splitter.addWidget(self.character_stats_widget)
+        self.splitter.setSizes([300, 300])
 
-        main_layout.addWidget(splitter)
+        main_layout.addWidget(self.splitter)
 
     def _create_basic_stats_widget(self):
         """创建角色基础属性部件"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(5, 5, 5, 5)
+        widget, group_box, placeholder_label, stats_display = _create_stats_widget_with_placeholder("角色基础属性")
 
-        group_box = QGroupBox("角色基础属性")
-        group_box.setFont(QFont("Microsoft YaHei", 10, QFont.Weight.Bold))
-
-        group_layout = QFormLayout()
-        group_layout.setVerticalSpacing(8)
-        group_layout.setHorizontalSpacing(15)
-
-        self.basic_stats = AttributeDisplay()
-        self.basic_stats.set_attributes(self.basic_placeholder_data)
-
-        group_layout.addRow(self.basic_stats)
-        group_box.setLayout(group_layout)
-        layout.addWidget(group_box)
+        # 保存引用
+        self.basic_group_box = group_box
+        self.basic_placeholder_label = placeholder_label
+        self.basic_stats = stats_display
 
         return widget
 
     def _create_character_stats_widget(self):
         """创建角色属性部件"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        layout.setContentsMargins(5, 5, 5, 5)
+        widget, group_box, placeholder_label, stats_display = _create_stats_widget_with_placeholder("角色面板属性")
 
-        group_box = QGroupBox("角色面板属性")
-        group_box.setFont(QFont("Microsoft YaHei", 10, QFont.Weight.Bold))
-
-        group_layout = QFormLayout()
-        group_layout.setVerticalSpacing(8)
-        group_layout.setHorizontalSpacing(15)
-
-        self.character_stats = AttributeDisplay()
-        self.character_stats.set_attributes(self.character_placeholder_data)
-
-        group_layout.addRow(self.character_stats)
-        group_box.setLayout(group_layout)
-        layout.addWidget(group_box)
+        # 保存引用
+        self.character_group_box = group_box
+        self.character_placeholder_label = placeholder_label
+        self.character_stats = stats_display
 
         return widget
 
@@ -122,15 +124,100 @@ class LeftPanel(QWidget):
         """连接信号"""
         self.app_core.base_attributes_updated.connect(self._on_basic_attributes_updated)
         self.app_core.character_attributes_updated.connect(self._on_character_attributes_updated)
-        self.app_core.character_changed.connect(self.on_character_changed)
+
+        # 状态管理器信号
+        self.state.character_changed.connect(self._on_state_character_changed)
+        self.state.character_cleared.connect(self.on_character_cleared)
+
+    def _on_state_character_changed(self, character):
+        """处理状态管理器的角色变化信号"""
+        print(f"[DEBUG LeftPanel] _on_state_character_changed: character={character.name if character else 'None'}")
+
+        if character:
+            # 有角色时隐藏占位符，显示属性区域
+            self._set_widget_visibility(False, True)
+
+            # ★★★ 关键：在这里初始化标签 ★★★
+            print(f"[DEBUG LeftPanel] 初始化角色属性标签")
+
+            # 获取显示设置
+            settings = settings_manager.get_settings()
+            display_mode = settings.display.character_attribute_display_mode
+
+            # 生成占位数据
+            basic_data, character_data = FormatUtils.generate_placeholder_data(character)
+
+            if display_mode == 1:
+                # 面板属性：使用 character_data
+                print(f"[DEBUG LeftPanel] 使用面板属性模式，初始化 {len(character_data)} 个标签")
+                self.character_stats.set_attributes(character_data)
+            else:
+                # 局内属性：可能需要不同的属性集
+                print(f"[DEBUG LeftPanel] 使用局内属性模式，初始化 {len(character_data)} 个标签")
+                self.character_stats.set_attributes(character_data)
+
+            print(f"[DEBUG LeftPanel] 标签初始化完成")
+
+            # 更新标题
+            self._update_groupbox_titles()
+        else:
+            # 无角色时重置为占位符
+            self.on_character_cleared()
 
     def on_character_changed(self, character):
         """处理角色变化 - 更新推荐数据"""
-        self.current_character = character
-        if hasattr(character, 'recommend'):
-            self.recommend_data = character.recommend
+        print(f"[DEBUG LeftPanel] on_character_changed 被调用: character={character.name if character else 'None'}")
+
+        current_state = self.state.get_state()
+
+        if current_state.current_character:
+            print(f"[DEBUG LeftPanel] 角色已选择: {current_state.current_character.name}")
+            # 有角色时隐藏占位符标签，显示属性显示区域
+            self._set_widget_visibility(False, True)
+
+            # 更新分组框标题
+            self._update_groupbox_titles()
         else:
-            self.recommend_data = None
+            print("[DEBUG LeftPanel] 角色被清空或选择了占位符")
+            # 没有角色时显示占位符标签，隐藏属性显示区域
+            self._set_widget_visibility(True, False)
+
+            self.basic_stats.set_attributes([])
+            self.character_stats.set_attributes([])
+
+            # 重置分组框标题
+            self.basic_group_box.setTitle("角色基础属性")
+            self.character_group_box.setTitle("角色面板属性")
+
+    def on_character_cleared(self):
+        """处理角色被清空"""
+        print("[DEBUG LeftPanel] on_character_cleared 被调用")
+
+        # 显示占位符标签，隐藏属性显示区域
+        self._set_widget_visibility(True, False)
+
+        # 清空属性显示
+        self.basic_stats.set_attributes([])
+        self.character_stats.set_attributes([])
+
+        # 重置分组框标题
+        self.basic_group_box.setTitle("角色基础属性")
+        self.character_group_box.setTitle("角色面板属性")
+
+        print("[DEBUG LeftPanel] 已重置为占位符状态")
+
+    def _set_widget_visibility(self, show_placeholder: bool, show_stats: bool):
+        """设置部件可见性（工具函数）
+
+        Args:
+            show_placeholder: 是否显示占位符标签
+            show_stats: 是否显示属性显示区域
+        """
+        print(f"[DEBUG LeftPanel] 设置部件可见性: show_placeholder={show_placeholder}, show_stats={show_stats}")
+        self.basic_placeholder_label.setVisible(show_placeholder)
+        self.basic_stats.setVisible(show_stats)
+        self.character_placeholder_label.setVisible(show_placeholder)
+        self.character_stats.setVisible(show_stats)
 
     def update_basic_stats(self, stats_dict):
         """更新角色基础属性显示"""
@@ -148,49 +235,99 @@ class LeftPanel(QWidget):
 
     def _on_basic_attributes_updated(self, attributes: dict):
         """处理基础属性更新信号"""
-        print("LeftPanel -> basic_attributes", attributes)
+        print(f"[DEBUG LeftPanel] basic_attributes_updated: {len(attributes)} 个属性")
+
+        # 只有基础属性区域显示时才更新
+        settings = settings_manager.get_settings()
+        if not settings.display.show_basic_attributes_section:
+            print("[DEBUG LeftPanel] 基础属性区域已隐藏，跳过更新")
+            return
+
         if not attributes:
+            # 清空显示
+            print("[DEBUG LeftPanel] 清空基础属性显示")
+            self.basic_stats.set_attributes([])
             return
 
         # 格式化属性数据
-        basic_stats = self._format_stats_with_recommendation(attributes, ColorConstants.BASIC_ATTRIBUTE_COLOR)
+        basic_stats = FormatUtils().format_stats_with_recommendation(attributes, ColorConstants.BASIC_ATTRIBUTE_COLOR)
 
         # 更新显示
         self.update_basic_stats(basic_stats)
 
     def _on_character_attributes_updated(self, attributes: dict):
         """处理角色属性更新信号"""
-        print("character_attributes", attributes)
+        print(f"[DEBUG LeftPanel] character_attributes_updated: {len(attributes)} 个属性")
+
         if not attributes:
+            # 清空显示
+            print("[DEBUG LeftPanel] 清空角色属性显示")
+            self.character_stats.set_attributes([])
             return
 
         # 格式化属性数据
-        character_stats = self._format_stats_with_recommendation(attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
+        character_stats = FormatUtils().format_stats_with_recommendation(attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
+        print(f"[DEBUG LeftPanel] character_stats: {character_stats}")
 
         # 更新显示
         self.update_character_stats(character_stats)
 
-    def _format_stats_with_recommendation(self, attributes: dict, base_color: str):
-        """格式化属性数据，标记推荐属性（只标记属性名）"""
-        formatted = []
+    def _update_groupbox_titles(self):
+        """根据设置更新分组框标题"""
+        settings = settings_manager.get_settings()
+        display_mode = settings.display.character_attribute_display_mode
 
-        for name, value in attributes.items():
-            formatted_value = FormatUtils.format_attribute_display(name, value)
+        if display_mode == 1:
+            # 显示角色面板属性
+            self.character_group_box.setTitle("角色面板属性")
+            print("[DEBUG LeftPanel] 更新标题: 角色面板属性")
+        else:
+            # 显示角色局内属性
+            self.character_group_box.setTitle("角色局内属性")
+            print("[DEBUG LeftPanel] 更新标题: 角色局内属性")
 
-            # 检查是否为推荐属性
-            is_recommended = False
-            if self.recommend_data:
-                is_recommended = FormatUtils.is_recommended_attribute(name, self.recommend_data)
+    def _update_ui_visibility(self):
+        """根据设置更新UI可见性"""
+        settings = settings_manager.get_settings()
+        show_basic = settings.display.show_basic_attributes_section
 
-            # 如果为推荐属性，属性名使用橙色，否则使用基础颜色
-            if is_recommended:
-                # 属性名用橙色，属性值用基础颜色
-                formatted.append((name, formatted_value, ColorConstants.RECOMMENDED_COLOR, base_color))
+        print(f"[DEBUG LeftPanel] 更新UI可见性: show_basic={show_basic}")
+
+        if show_basic:
+            # 显示基础属性区域
+            self.basic_stats_widget.setVisible(True)
+
+            # 获取当前状态
+            current_state = self.state.get_state()
+            has_character = current_state.current_character is not None
+
+            if has_character:
+                # 有角色时显示属性，隐藏占位符
+                self._set_widget_visibility(False, True)
             else:
-                # 属性名和属性值都用基础颜色
-                formatted.append((name, formatted_value, ColorConstants.BASIC_COLOR, base_color))
+                # 无角色时显示占位符
+                self._set_widget_visibility(True, False)
 
-        return formatted
+            # 调整分割器比例
+            self.splitter.setSizes([300, 300])  # 基础属性区域较小
+        else:
+            # 隐藏基础属性区域
+            self.basic_stats_widget.setVisible(False)
+
+            # 更新可见性
+            current_state = self.state.get_state()
+            has_character = current_state.current_character is not None
+
+            if has_character:
+                # 有角色时只显示角色属性区域
+                self.character_stats_widget.setVisible(True)
+                self.character_placeholder_label.setVisible(False)
+                self.character_stats.setVisible(True)
+            else:
+                # 无角色时显示占位符
+                self.character_stats_widget.setVisible(True)
+                self.character_placeholder_label.setVisible(True)
+                self.character_stats.setVisible(False)
 
     @staticmethod
     def _convert_stats_to_display_format(stats_dict):
@@ -214,3 +351,53 @@ class LeftPanel(QWidget):
                 stats_data.append((name, display_value, name_color, value_color))
 
         return stats_data
+
+    def refresh_from_settings(self):
+        """从设置刷新状态"""
+        print("[DEBUG LeftPanel] refresh_from_settings 被调用")
+
+        # 更新分组框标题
+        self._update_groupbox_titles()
+
+        # 更新UI可见性
+        self._update_ui_visibility()
+
+        # 如果当前有角色，重新触发属性计算以更新显示
+        current_state = self.state.get_state()
+        if current_state.current_character:
+            print("[DEBUG LeftPanel] 重新计算属性以更新显示")
+            self.app_core.calculate_and_update()
+
+        # 如果启用了基础属性显示，但当前没有基础属性数据，重新获取
+        settings = settings_manager.get_settings()
+        if settings.display.show_basic_attributes_section and current_state.current_character:
+            print("[DEBUG LeftPanel] 重新获取基础属性数据")
+            # 触发基础属性计算
+            if current_state.current_weapon:
+                base_attributes = self.app_core.calculator.calculate_with_weapon(
+                    current_state.current_character,
+                    current_state.current_weapon,
+                    include_talent=False
+                )
+            else:
+                base_attributes = self.app_core.calculator.calculate_character_only(
+                    current_state.current_character
+                )
+
+            # 手动发送信号更新显示
+            self._on_basic_attributes_updated(base_attributes)
+
+    def reset_to_placeholder(self):
+        """重置为占位数据"""
+        print("[DEBUG LeftPanel] reset_to_placeholder 被调用")
+
+        # 显示占位符标签，隐藏属性显示区域
+        self._set_widget_visibility(True, False)
+
+        # 清空属性显示（使用空列表，因为占位符标签会显示）
+        self.basic_stats.set_attributes([])
+        self.character_stats.set_attributes([])
+
+        # 重置分组框标题
+        self.basic_group_box.setTitle("角色基础属性")
+        self.character_group_box.setTitle("角色面板属性")

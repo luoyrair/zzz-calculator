@@ -1,20 +1,19 @@
 """简化版应用核心"""
 
-from typing import Optional, Dict
+from typing import Union
+
 from PyQt6.QtCore import QObject, pyqtSignal
-from .models import Character, Weapon, GearSet, GearPiece
+
+from src.config.settings import settings_manager
 from .calculator import AttributeCalculator
 from .data_manager import SimpleDataManager
+from .models import GearPiece
 
 
 class ApplicationCore(QObject):
     """应用核心 - 连接UI和数据层"""
 
     # 信号定义
-    character_changed: pyqtSignal = pyqtSignal(Character)
-    weapon_changed: pyqtSignal = pyqtSignal(Weapon)
-    gear_set_changed: pyqtSignal = pyqtSignal(list)  # [set_id1, set_id2]
-    gear_piece_changed: pyqtSignal = pyqtSignal(int, GearPiece)  # position
     base_attributes_updated: pyqtSignal = pyqtSignal(dict)  # 基础属性更新信号
     character_attributes_updated: pyqtSignal = pyqtSignal(dict)  # 角色属性更新信号
 
@@ -24,15 +23,9 @@ class ApplicationCore(QObject):
         self.data_manager = SimpleDataManager()
         self.calculator = AttributeCalculator(self.data_manager)
 
-        # 当前状态
-        self.current_character: Optional[Character] = None
-        self.current_weapon: Optional[Weapon] = None
-        self.current_gear_sets: Dict[str, GearSet] = {}
-        self.current_gear_pieces: Dict[int, GearPiece] = {}
-
-        # 记录上次触发状态，避免重复触发
-        self._last_base_attributes = None
-        self._last_character_attributes = None
+        # 获取状态管理器实例
+        from src.core.state_manager import StateManager
+        self.state = StateManager.instance()
 
         # 加载数据
         self._load_data()
@@ -46,20 +39,18 @@ class ApplicationCore(QObject):
         else:
             print("[DEBUG AppCore] 数据加载成功")
 
-    def set_character(self, character_id: int, level: int = 60,
+    def set_character(self, character_id: Union[int, None], level: int = 60,
                       breakthrough: int = 6, core_passive: int = 7):
         """设置当前角色"""
         print(
             f"[DEBUG AppCore] set_character 调用开始: id={character_id}, level={level}, breakthrough={breakthrough}, core_passive={core_passive}")
 
-        # 检查递归调用
-        import traceback
-        stack = traceback.extract_stack()
-        print(f"[DEBUG AppCore] 调用栈深度: {len(stack)}")
-        if len(stack) > 50:
-            print("[WARNING AppCore] 调用栈深度超过50，可能存在递归")
-            for i, frame in enumerate(stack[-10:]):
-                print(f"  Frame {i}: {frame.filename}:{frame.lineno} in {frame.name}")
+        if character_id is None or character_id == -1:
+            print("[DEBUG AppCore] 清空角色选择")
+            # 清空角色及相关状态
+            self.state.clear_all()
+
+            return
 
         character = self.data_manager.get_character(character_id)
         if not character:
@@ -79,30 +70,32 @@ class ApplicationCore(QObject):
             print(f"[DEBUG AppCore] 更新角色核心被动: {character.core_passive} -> {core_passive}")
             character.core_passive = core_passive
 
-        self.current_character = character
+        # 更新状态管理器
+        self.state.update_character(character)
         print(f"[DEBUG AppCore] 设置当前角色: {character.name}")
 
         # 更新角色对象中的武器ID
-        if self.current_weapon:
-            if character.weapon_id != self.current_weapon.id:
-                print(f"[DEBUG AppCore] 更新角色武器ID: {character.weapon_id} -> {self.current_weapon.id}")
-                character.weapon_id = self.current_weapon.id
-
-        # 发出信号
-        print("[DEBUG AppCore] 发射 character_changed 信号")
-        self.character_changed.emit(character)
+        if self.state.get_state().current_weapon:
+            if character.weapon_id != self.state.get_state().current_weapon.id:
+                print(f"[DEBUG AppCore] 更新角色武器ID: {character.weapon_id} -> {self.state.get_state().current_weapon.id}")
+                character.weapon_id = self.state.get_state().current_weapon.id
 
         # 角色变化时：计算并更新所有属性
         print("[DEBUG AppCore] 开始计算属性")
         self._calculate_and_update_all()
         print("[DEBUG AppCore] set_character 调用完成")
 
-    def set_weapon(self, weapon_id: int, level: int = 60,
+    def set_weapon(self, weapon_id: Union[int, None], level: int = 60,
                    refinement: int = 5, talent: int = 1, flag=None):
         """设置当前武器"""
         print(
             f"[DEBUG AppCore] set_weapon 调用开始: id={weapon_id}, level={level}, refinement={refinement}, talent={talent}")
 
+        if weapon_id is None or weapon_id == -1:
+            print("[DEBUG AppCore] 清空音擎选择")
+            # 清空角色及相关状态
+
+            return
         weapon = self.data_manager.get_weapon(weapon_id)
         if not weapon:
             print(f"[ERROR AppCore] 未找到武器: {weapon_id}")
@@ -125,18 +118,16 @@ class ApplicationCore(QObject):
             print("[DEBUG AppCore] 设置武器数据计算标志为False")
             weapon.data_calculation_flag = False
 
-        self.current_weapon = weapon
+        # 更新状态管理器
+        self.state.update_weapon(weapon)
         print(f"[DEBUG AppCore] 设置当前武器: {weapon.name}")
 
         # 更新角色对象中的武器ID
-        if self.current_character:
-            if self.current_character.weapon_id != weapon.id:
-                print(f"[DEBUG AppCore] 更新角色武器ID: {self.current_character.weapon_id} -> {weapon.id}")
-                self.current_character.weapon_id = weapon.id
-
-        # 发出信号
-        print("[DEBUG AppCore] 发射 weapon_changed 信号")
-        self.weapon_changed.emit(weapon)
+        current_state = self.state.get_state()
+        if current_state.current_character:
+            if current_state.current_character.weapon_id != weapon.id:
+                print(f"[DEBUG AppCore] 更新角色武器ID: {current_state.current_character.weapon_id} -> {weapon.id}")
+                current_state.current_character.weapon_id = weapon.id
 
         # 武器变化时：计算并更新所有属性
         print("[DEBUG AppCore] 开始计算属性")
@@ -145,33 +136,45 @@ class ApplicationCore(QObject):
 
     def set_gear_sets(self, set_ids: list):
         """设置驱动盘套装"""
-        # 清空当前套装
-        self.current_gear_sets.clear()
+        print(
+            f"[DEBUG AppCore] set_gear_sets 调用开始: set_ids={set_ids}")
+
+        self.state.clear_gear_sets()
 
         # 加载新套装
+        gear_sets = {}
         if set_ids:
             for set_id in set_ids:
+                if not set_id:  # 跳过空ID
+                    continue
                 gear_set = self.data_manager.get_gear_set(set_id)
                 if gear_set:
-                    self.current_gear_sets[set_id] = gear_set
+                    print(f"[DEBUG AppCore] 找到驱动盘套装: {gear_set.name} (ID: {set_id})")
+                    gear_sets[set_id] = gear_set
+                else:
+                    print(f"[DEBUG AppCore] 未找到驱动盘套装: ID={set_id}")
 
-        # 更新角色对象中的套装ID
-        if self.current_character:
-            self.current_character.gear_set_ids = set_ids
-
-        # 发出信号
-        self.gear_set_changed.emit(set_ids)
+        # 更新状态管理器
+        self.state.update_gear_sets(gear_sets)
 
         # 驱动盘变化时：只计算完整属性
-        self._calculate_and_update_character_only()
+        print("[DEBUG AppCore] 开始计算属性")
+        self._calculate_and_update_all()
+        print("[DEBUG AppCore] set_gear_sets 调用完成")
 
     def set_gear_piece(self, position: int, main_attribute=None, sub_attributes=None):
         """设置单个驱动盘 - 合并更新而非覆盖"""
+        print(
+            f"[DEBUG AppCore] set_gear_piece 调用开始: position={position}, main_attribute={main_attribute}, sub_attributes={sub_attributes}")
+
         # 获取现有的驱动盘（如果有）
-        if position in self.current_gear_pieces:
-            gear_piece = self.current_gear_pieces[position]
+        current_state = self.state.get_state()
+        if position in current_state.current_gear_pieces:
+            gear_piece = current_state.current_gear_pieces[position]
+            print(f"[DEBUG AppCore] 找到驱动盘: {gear_piece} (position: {position})")
         else:
             gear_piece = GearPiece(position=position)
+            print(f"[DEBUG AppCore] 未找到驱动盘。创建驱动盘: {gear_piece} (position: {position})")
 
         # 只更新提供的属性，不覆盖未提供的
         if main_attribute:
@@ -185,101 +188,118 @@ class ApplicationCore(QObject):
                 if attr is None:
                     del gear_piece.sub_attributes[slot]
 
-        self.current_gear_pieces[position] = gear_piece
+        # 更新状态管理器
+        self.state.update_gear_piece(position, gear_piece)
 
         # 更新角色对象
-        if self.current_character:
-            if position not in self.current_character.gear_pieces:
-                self.current_character.gear_pieces[position] = {'main': None, 'subs': {}}
+        current_state = self.state.get_state()
+        if current_state.current_character:
+            if position not in current_state.current_character.gear_pieces:
+                current_state.current_character.gear_pieces[position] = {'main': None, 'subs': {}}
 
             if main_attribute:
-                self.current_character.gear_pieces[position]['main'] = main_attribute
+                current_state.current_character.gear_pieces[position]['main'] = main_attribute
 
             if sub_attributes:
                 for slot, attr in sub_attributes.items():
                     if attr:
-                        self.current_character.gear_pieces[position]['subs'][slot] = attr
-                    elif slot in self.current_character.gear_pieces[position]['subs']:
-                        del self.current_character.gear_pieces[position]['subs'][slot]
-
-        # 发出信号
-        self.gear_piece_changed.emit(position, gear_piece)
+                        current_state.current_character.gear_pieces[position]['subs'][slot] = attr
+                    elif slot in current_state.current_character.gear_pieces[position]['subs']:
+                        del current_state.current_character.gear_pieces[position]['subs'][slot]
 
         # 驱动盘变化时：只计算完整属性
+        print("[DEBUG AppCore] 开始计算属性")
         self._calculate_and_update_character_only()
+        print("[DEBUG AppCore] set_gear_piece 调用完成")
 
     def _calculate_and_update_all(self):
         """计算并更新所有属性（角色/武器变化时调用）"""
         print("[DEBUG AppCore] _calculate_and_update_all 开始")
-        if not self.current_character:
+        current_state = self.state.get_state()
+        if not current_state.current_character:
             print("[WARNING AppCore] 没有当前角色，跳过计算")
             return
 
-        # 1. 计算基础属性（仅角色+武器）
+        # 获取显示设置
+        settings = settings_manager.get_settings()
+        display_mode = settings.display.character_attribute_display_mode
+
+        print(f"[DEBUG AppCore] 显示模式: {display_mode} (1=面板属性, 2=局内属性)")
+        print(f"[DEBUG AppCore] 显示基础属性区域: {settings.display.show_basic_attributes_section}")
+
+        # 1. 计算基础属性（仅角色+武器基础属性）
         print("[DEBUG AppCore] 计算基础属性")
-        if self.current_weapon:
-            print(f"[DEBUG AppCore] 计算带武器的属性，武器: {self.current_weapon.name}")
+        current_state = self.state.get_state()
+        if current_state.current_weapon:
+            print(f"[DEBUG AppCore] 计算带武器的属性，武器: {current_state.current_weapon.name}")
             base_attributes = self.calculator.calculate_with_weapon(
-                self.current_character,
-                self.current_weapon
+                current_state.current_character,
+                current_state.current_weapon,
+                include_talent=False  # 不包含天赋属性
             )
         else:
             print("[DEBUG AppCore] 计算仅角色的属性")
             base_attributes = self.calculator.calculate_character_only(
-                self.current_character
+                current_state.current_character
             )
 
-        # 避免重复触发相同属性
-        print("[DEBUG AppCore] 检查是否需要发射 base_attributes_updated 信号")
-        if base_attributes != self._last_base_attributes:
-            print("[DEBUG AppCore] 属性有变化，发射 base_attributes_updated 信号")
+        # 根据设置决定是否发送基础属性更新信号
+        if settings.display.show_basic_attributes_section:
+            print("[DEBUG AppCore] 基础属性区域显示已启用，发射 base_attributes_updated 信号")
             self.base_attributes_updated.emit(base_attributes)
-            self._last_base_attributes = base_attributes.copy()
         else:
-            print("[DEBUG AppCore] 属性未变化，跳过信号发射")
+            print("[DEBUG AppCore] 基础属性区域显示已禁用")
 
-        # 2. 如果有驱动盘配置，计算完整属性
+        # 2. 计算角色属性（根据显示模式决定是否包含天赋属性）
         print("[DEBUG AppCore] 检查是否有驱动盘配置")
-        has_gear = bool(self.current_gear_sets or self.current_gear_pieces)
-        if has_gear:
-            print("[DEBUG AppCore] 有驱动盘配置，计算完整属性")
+        has_gear = bool(current_state.current_gear_sets or current_state.current_gear_pieces)
+
+        if has_gear or display_mode == 2:
+            # 如果有驱动盘配置或者显示局内属性，需要计算完整属性
+            print("[DEBUG AppCore] 计算完整角色属性")
+
+            # 根据显示模式决定是否包含天赋属性
+            include_talent = (display_mode == 2)  # 模式2包含天赋属性
+
             character_attributes = self.calculator.calculate(
-                character=self.current_character,
-                weapon=self.current_weapon,
-                gear_sets=self.current_gear_sets,
-                gear_pieces=self.current_gear_pieces
+                character=current_state.current_character,
+                weapon=current_state.current_weapon,
+                gear_sets=current_state.current_gear_sets,
+                gear_pieces=current_state.current_gear_pieces,
+                include_talent=include_talent
             )
 
-            # 避免重复触发相同属性
-            print("[DEBUG AppCore] 检查是否需要发射 character_attributes_updated 信号")
-            if character_attributes != self._last_character_attributes:
-                print("[DEBUG AppCore] 属性有变化，发射 character_attributes_updated 信号")
-                self.character_attributes_updated.emit(character_attributes)
-                self._last_character_attributes = character_attributes.copy()
-            else:
-                print("[DEBUG AppCore] 属性未变化，跳过信号发射")
+            print("[DEBUG AppCore] 发射 character_attributes_updated 信号")
+            self.character_attributes_updated.emit(character_attributes)
         else:
-            print("[DEBUG AppCore] 无驱动盘配置，跳过完整属性计算")
+            # 没有驱动盘配置且显示面板属性，使用基础属性
+            print("[DEBUG AppCore] 无驱动盘配置且显示面板属性，使用基础属性")
+            self.character_attributes_updated.emit(base_attributes.copy())
 
         print("[DEBUG AppCore] _calculate_and_update_all 完成")
 
     def _calculate_and_update_character_only(self):
         """只计算完整属性（驱动盘变化时调用）"""
-        if not self.current_character:
+        current_state = self.state.get_state()
+        if not current_state.current_character:
             return
 
-        # 只计算完整属性
+        # 获取显示设置
+        settings = settings_manager.get_settings()
+        display_mode = settings.display.character_attribute_display_mode
+        include_talent = (display_mode == 2)  # 模式2包含天赋属性
+
+        # 计算完整属性
         character_attributes = self.calculator.calculate(
-            character=self.current_character,
-            weapon=self.current_weapon,
-            gear_sets=self.current_gear_sets,
-            gear_pieces=self.current_gear_pieces
+            character=current_state.current_character,
+            weapon=current_state.current_weapon,
+            gear_sets=current_state.current_gear_sets,
+            gear_pieces=current_state.current_gear_pieces,
+            include_talent=include_talent
         )
 
-        # 避免重复触发相同属性
-        if character_attributes != self._last_character_attributes:
-            self.character_attributes_updated.emit(character_attributes)
-            self._last_character_attributes = character_attributes.copy()
+        # 总是发送更新信号
+        self.character_attributes_updated.emit(character_attributes)
 
     def calculate_and_update(self):
         """兼容原有接口，调用全量更新"""
@@ -287,11 +307,10 @@ class ApplicationCore(QObject):
 
     def clear_all(self):
         """清空所有选择"""
-        self.current_character = None
-        self.current_weapon = None
-        self.current_gear_sets.clear()
-        self.current_gear_pieces.clear()
-        self._last_base_attributes = None
-        self._last_character_attributes = None
-        self.calculator.clear_cache()
+        self.state.clear_all()
+
+        # 发送空的属性更新
+        self.base_attributes_updated.emit({})
+        self.character_attributes_updated.emit({})
+
         print("已清空所有选择")
