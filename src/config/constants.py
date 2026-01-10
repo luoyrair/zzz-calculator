@@ -15,6 +15,7 @@ class AppConstants:
 
     # 系统相关
     IS_FROZEN = getattr(sys, 'frozen', False)
+    IS_BUNDLED = hasattr(sys, '_MEIPASS')
 
     # 路径相关
     @staticmethod
@@ -49,11 +50,13 @@ class PathConstants:
         base_dir = AppConstants.get_base_dir()
         return base_dir / 'logs'
 
-    @staticmethod
-    def get_config_dir():
+    def get_config_dir(self):
         """获取配置目录"""
-        base_dir = AppConstants.get_base_dir()
-        return base_dir / 'config'
+        return self.get_data_dir() / 'config'
+
+    def get_settings_dir(self):
+        """获取配置目录"""
+        return self.get_data_dir() / 'app'
 
     # 子目录
     CHARACTERS_DIR = "characters"

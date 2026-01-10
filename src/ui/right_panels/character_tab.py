@@ -14,6 +14,7 @@ from src.ui.widgets.rarity_widget import RarityWidget
 from src.ui.widgets.simple_combo import CharacterSelector, WeaponSelector
 from src.utils.constraint_utils import ConstraintUtils
 from src.utils.format_utils import FormatUtils
+from src.utils.logger import get_logger
 
 
 class CharacterTab(QWidget):
@@ -21,7 +22,8 @@ class CharacterTab(QWidget):
 
     def __init__(self, app_core: ApplicationCore):
         super().__init__()
-        print("[DEBUG CharacterTab] 初始化开始")
+        self.logger = get_logger("ui.character_tab")
+        self.logger.info("CharacterTab 初始化开始")
         self.app_core = app_core
         self.gear_tab = None
 
@@ -42,11 +44,11 @@ class CharacterTab(QWidget):
 
         # 加载数据
         self._load_data_to_ui()
-        print("[DEBUG CharacterTab] 初始化完成")
+        self.logger.info("CharacterTab  初始化完成")
 
     def refresh_from_settings(self):
         """从设置刷新状态"""
-        print("[DEBUG CharacterTab] refresh_from_settings 被调用")
+        self.logger.debug("refresh_from_settings 被调用")
 
         # 刷新设置管理器（重新加载文件）
         self.settings_manager.refresh()
@@ -56,22 +58,22 @@ class CharacterTab(QWidget):
         # 如果当前有角色且启用了自动选择，但还没有音擎，尝试自动选择
         if current_state.current_character:
             current_weapon_id = self.weapon_combo.get_selected_data()
-            print(f"[DEBUG CharacterTab] 当前角色: {current_state.current_character.name}, 当前武器ID: {current_weapon_id}")
+            self.logger.debug("当前角色: {current_state.current_character.name}, 当前武器ID: {current_weapon_id}")
 
             # 获取当前设置
             settings = self.settings_manager.get_settings()
-            print(f"[DEBUG CharacterTab] 自动选择音擎设置: {settings.auto_select.auto_select_weapon}")
+            self.logger.debug("自动选择音擎设置: {settings.auto_select.auto_select_weapon}")
 
             if settings.auto_select.auto_select_weapon:
                 if not current_weapon_id or current_weapon_id == -1:
-                    print("[DEBUG CharacterTab] 启用了自动选择且当前没有音擎，尝试自动选择")
+                    self.logger.debug("启用了自动选择且当前没有音擎，尝试自动选择")
                     self._auto_select_character_weapon(current_state.current_character)
                 else:
-                    print("[DEBUG CharacterTab] 已有音擎选择，不自动选择")
+                    self.logger.debug("已有音擎选择，不自动选择")
             else:
-                print("[DEBUG CharacterTab] 自动选择音擎已禁用")
+                self.logger.debug("自动选择音擎已禁用")
         else:
-            print("[DEBUG CharacterTab] 当前没有选择角色")
+            self.logger.debug("当前没有选择角色")
 
     # ========== 公共接口方法 ==========
 
@@ -376,18 +378,18 @@ class CharacterTab(QWidget):
 
     def _on_character_changed(self, index):
         """处理角色选择变化"""
-        print(f"[DEBUG CharacterTab] _on_character_changed 调用: index={index}")
+        self.logger.debug("_on_character_changed 调用: index={index}")
 
         if index <= 0:
             # 选择了占位符项，重置状态
-            print("[DEBUG CharacterTab] 选择了占位符项，重置状态")
+            self.logger.debug("选择了占位符项，重置状态")
             # 清空应用核心中的角色选择
             self.app_core.set_character(None)
 
             return
 
         character_id = self.character_combo.get_selected_data()
-        print(f"[DEBUG CharacterTab] 选择的角色ID: {character_id}")
+        self.logger.debug("选择的角色ID: {character_id}")
 
         if character_id:
             # 获取角色对象
@@ -397,7 +399,7 @@ class CharacterTab(QWidget):
                 return
 
             # 设置角色
-            print("[DEBUG CharacterTab] 调用 app_core.set_character")
+            self.logger.debug("调用 app_core.set_character")
             self.app_core.set_character(
                 character_id=character_id,
                 level=self.character_level_selector.get_value(),
@@ -408,7 +410,7 @@ class CharacterTab(QWidget):
             # 检查是否需要自动选择专属音擎
             self._handle_auto_weapon_selection(character)
         else:
-            print("[DEBUG CharacterTab] 未获取到有效的角色ID")
+            self.logger.debug("未获取到有效的角色ID")
 
     def _handle_auto_weapon_selection(self, character):
         """处理自动武器选择逻辑"""
@@ -416,26 +418,26 @@ class CharacterTab(QWidget):
         settings = self.settings_manager.get_settings()
         auto_select_enabled = settings.auto_select.auto_select_weapon
 
-        print(f"[DEBUG CharacterTab] 自动选择音擎设置: {auto_select_enabled}")
+        self.logger.debug("自动选择音擎设置: {auto_select_enabled}")
 
         if auto_select_enabled:
             # 如果启用了自动选择，尝试选择专属音擎
             current_weapon_id = self.weapon_combo.get_selected_data()
-            print(f"[DEBUG CharacterTab] 当前武器ID: {current_weapon_id}")
+            self.logger.debug("当前武器ID: {current_weapon_id}")
 
             if not current_weapon_id or current_weapon_id == -1:
-                print("[DEBUG CharacterTab] 当前没有选择武器，执行自动选择")
+                self.logger.debug("当前没有选择武器，执行自动选择")
                 self._auto_select_character_weapon(character)
             else:
-                print("[DEBUG CharacterTab] 已有武器选择，跳过自动选择")
+                self.logger.debug("已有武器选择，跳过自动选择")
         else:
-            print("[DEBUG CharacterTab] 自动选择音擎已禁用，跳过自动选择")
+            self.logger.debug("自动选择音擎已禁用，跳过自动选择")
 
     def _should_auto_select_weapon(self) -> bool:
         """检查是否应该自动选择专属音擎"""
         settings = self.settings_manager.get_settings()
         auto_select = settings.auto_select.auto_select_weapon
-        print(f"[DEBUG CharacterTab] _should_auto_select_weapon: {auto_select}")
+        self.logger.debug("_should_auto_select_weapon: {auto_select}")
         return auto_select
 
     def _auto_select_character_weapon(self, character):
@@ -445,34 +447,34 @@ class CharacterTab(QWidget):
             weapon_id_str = f"1{character.rarity}{character.id // 10}"
             weapon_id = int(weapon_id_str)
 
-            print(f"[DEBUG CharacterTab] 尝试自动选择专属音擎: ID={weapon_id}")
+            self.logger.debug("尝试自动选择专属音擎: ID={weapon_id}")
 
             # 尝试获取音擎
             weapon = self.app_core.data_manager.get_weapon(weapon_id)
             if weapon:
-                print(f"[DEBUG CharacterTab] 找到专属音擎: {weapon.name}")
+                self.logger.debug("找到专属音擎: {weapon.name}")
 
                 # 在组合框中查找并选择该音擎
                 found = False
                 for i in range(self.weapon_combo.count()):
                     if self.weapon_combo.itemData(i) == weapon_id:
-                        print(f"[DEBUG CharacterTab] 在组合框中找到音擎，索引: {i}")
+                        self.logger.debug("在组合框中找到音擎，索引: {i}")
                         self.weapon_combo.setCurrentIndex(i)
                         found = True
                         break
 
                 if found:
-                    print("[DEBUG CharacterTab] 自动选择音擎成功")
+                    self.logger.debug("自动选择音擎成功")
                     # 选择武器后，应用核心会通过信号自动处理武器设置
                 else:
-                    print("[DEBUG CharacterTab] 音擎在列表中但未找到")
+                    self.logger.debug("音擎在列表中但未找到")
                     self._show_weapon_not_found_warning(weapon_id)
             else:
-                print(f"[DEBUG CharacterTab] 未找到音擎: {weapon_id}")
+                self.logger.debug("未找到音擎: {weapon_id}")
                 self._show_weapon_not_found_warning(weapon_id)
 
         except Exception as e:
-            print(f"[ERROR CharacterTab] 自动选择音擎失败: {e}")
+            self.logger.error(f"自动选择音擎失败: {e}")
 
     def _show_weapon_not_found_warning(self, weapon_id: int):
         """显示未找到音擎的警告"""
@@ -524,54 +526,54 @@ class CharacterTab(QWidget):
 
     def _on_character_level_changed(self, level):
         """处理角色等级变化"""
-        print(f"[DEBUG CharacterTab] _on_character_level_changed 调用: level={level}")
+        self.logger.debug("_on_character_level_changed 调用: level={level}")
 
         # 根据等级更新突破等级范围
-        print("[DEBUG CharacterTab] 更新突破等级范围")
+        self.logger.debug("更新突破等级范围")
         self._update_breakthrough_by_level(level)
 
         # 根据等级更新核心被动等级范围
-        print("[DEBUG CharacterTab] 更新核心被动等级范围")
+        self.logger.debug("更新核心被动等级范围")
         self._update_core_passive_by_level(level)
 
         # 更新角色选择
-        print("[DEBUG CharacterTab] 调用 _character_selection")
+        self.logger.debug("调用 _character_selection")
         self._character_selection()
 
     def _on_breakthrough_changed(self, breakthrough):
         """处理突破等级变化"""
-        print(f"[DEBUG CharacterTab] _on_breakthrough_changed 调用: breakthrough={breakthrough}")
+        self.logger.debug("_on_breakthrough_changed 调用: breakthrough={breakthrough}")
 
         # 根据突破等级更新角色等级范围
-        print("[DEBUG CharacterTab] 更新角色等级范围")
+        self.logger.debug("更新角色等级范围")
         self._update_level_by_breakthrough(breakthrough)
 
         # 更新角色选择
-        print("[DEBUG CharacterTab] 调用 _character_selection")
+        self.logger.debug("调用 _character_selection")
         self._character_selection()
 
     def _on_core_passive_changed(self, core_passive):
         """处理核心被动变化"""
-        print(f"[DEBUG CharacterTab] _on_core_passive_changed 调用: core_passive={core_passive}")
+        self.logger.debug("_on_core_passive_changed 调用: core_passive={core_passive}")
 
         # 根据核心被动等级更新角色等级范围
-        print("[DEBUG CharacterTab] 更新角色等级范围")
+        self.logger.debug("更新角色等级范围")
         self._update_level_by_core_passive(core_passive)
 
         # 更新角色选择
-        print("[DEBUG CharacterTab] 调用 _character_selection")
+        self.logger.debug("调用 _character_selection")
         self._character_selection()
 
     def _character_selection(self):
         """处理角色等级变化"""
-        print("[DEBUG CharacterTab] _character_selection 调用")
+        self.logger.debug("_character_selection 调用")
 
         if self.character_combo.currentIndex() > 0:
             character_id = self.character_combo.get_selected_data()
-            print(f"[DEBUG CharacterTab] 当前角色ID: {character_id}")
+            self.logger.debug("当前角色ID: {character_id}")
 
             if character_id:
-                print("[DEBUG CharacterTab] 调用 app_core.set_character")
+                self.logger.debug("调用 app_core.set_character")
                 self.app_core.set_character(
                     character_id=character_id,
                     level=self.character_level_selector.get_value(),
@@ -579,7 +581,7 @@ class CharacterTab(QWidget):
                     core_passive=self.core_passive_selector.get_value()
                 )
         else:
-            print("[DEBUG CharacterTab] 未选择角色，跳过")
+            self.logger.debug("未选择角色，跳过")
 
     # ========== 武器相关事件处理方法 ==========
 
@@ -634,21 +636,20 @@ class CharacterTab(QWidget):
 
     def _on_app_character_changed(self, character):
         """处理应用核心的角色变化信号"""
-        print(f"[DEBUG CharacterTab] _on_app_character_changed 调用: character={character.name}")
+        self.logger.debug("_on_app_character_changed 调用: character={character.name}")
 
         # 更新角色信息显示
-        print("[DEBUG CharacterTab] 更新角色显示")
         self._update_character_display(character)
 
         # 获取当前设置状态
         settings = self.settings_manager.get_settings()
-        print(f"[DEBUG CharacterTab] 使用原始推荐数据设置: {settings.auto_select.use_original_recommendations}")
+        self.logger.debug("使用原始推荐数据设置: {settings.auto_select.use_original_recommendations}")
 
         # 根据设置决定是否更新驱动盘选项卡的推荐数据
         if settings.auto_select.use_original_recommendations:
-            print("[DEBUG CharacterTab] 启用推荐数据，更新驱动盘选项卡")
+            self.logger.debug("启用推荐数据，更新驱动盘选项卡")
         else:
-            print("[DEBUG CharacterTab] 禁用推荐数据，不更新驱动盘选项卡")
+            self.logger.debug("禁用推荐数据，不更新驱动盘选项卡")
             # 如果禁用了推荐数据，应该清除驱动盘选项卡的推荐标记
             self._clear_gear_tab_recommendations()
 

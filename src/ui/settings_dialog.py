@@ -65,7 +65,7 @@ class SettingsDialog(QDialog):
         level_group_layout.addWidget(mode2)
 
         # 模式3
-        mode3 = QRadioButton("模式3：渐进模式（等级达到当前突破上限时手动升级突破）")
+        mode3 = QRadioButton("模式3：渐进模式（等级达到当前突破上限时手动升级突破）（未实现）")
         mode3.setToolTip("等级达到当前突破上限时不会自动升级突破，需要手动升级突破等级")
         self.level_mode_group.addButton(mode3, 3)
         level_group_layout.addWidget(mode3)

@@ -9,8 +9,9 @@ from PyQt6.QtWidgets import (
 
 from src.config.constants import ColorConstants
 from src.config.settings import settings_manager
-from src.utils.format_utils import FormatUtils
 from src.ui.widgets.attribute_display import AttributeDisplay
+from src.utils.format_utils import FormatUtils
+from src.utils.logger import get_logger
 
 
 def _create_placeholder_label():
@@ -66,6 +67,7 @@ class LeftPanel(QWidget):
 
     def __init__(self, app_core):
         super().__init__()
+        self.logger = get_logger("ui.left_panel")
         self.app_core = app_core
 
         # 获取状态管理器实例
@@ -131,14 +133,14 @@ class LeftPanel(QWidget):
 
     def _on_state_character_changed(self, character):
         """处理状态管理器的角色变化信号"""
-        print(f"[DEBUG LeftPanel] _on_state_character_changed: character={character.name if character else 'None'}")
+        self.logger.debug(f"_on_state_character_changed: character={character.name if character else 'None'}")
 
         if character:
             # 有角色时隐藏占位符，显示属性区域
             self._set_widget_visibility(False, True)
 
             # ★★★ 关键：在这里初始化标签 ★★★
-            print(f"[DEBUG LeftPanel] 初始化角色属性标签")
+            self.logger.debug(f"初始化角色属性标签")
 
             # 获取显示设置
             settings = settings_manager.get_settings()
@@ -149,14 +151,14 @@ class LeftPanel(QWidget):
 
             if display_mode == 1:
                 # 面板属性：使用 character_data
-                print(f"[DEBUG LeftPanel] 使用面板属性模式，初始化 {len(character_data)} 个标签")
+                self.logger.debug(f"使用面板属性模式，初始化 {len(character_data)} 个标签")
                 self.character_stats.set_attributes(character_data)
             else:
                 # 局内属性：可能需要不同的属性集
-                print(f"[DEBUG LeftPanel] 使用局内属性模式，初始化 {len(character_data)} 个标签")
+                self.logger.debug(f"使用局内属性模式，初始化 {len(character_data)} 个标签")
                 self.character_stats.set_attributes(character_data)
 
-            print(f"[DEBUG LeftPanel] 标签初始化完成")
+            self.logger.debug(f"标签初始化完成")
 
             # 更新标题
             self._update_groupbox_titles()
@@ -166,19 +168,19 @@ class LeftPanel(QWidget):
 
     def on_character_changed(self, character):
         """处理角色变化 - 更新推荐数据"""
-        print(f"[DEBUG LeftPanel] on_character_changed 被调用: character={character.name if character else 'None'}")
+        self.logger.debug(f"on_character_changed 被调用: character={character.name if character else 'None'}")
 
         current_state = self.state.get_state()
 
         if current_state.current_character:
-            print(f"[DEBUG LeftPanel] 角色已选择: {current_state.current_character.name}")
+            self.logger.debug(f"角色已选择: {current_state.current_character.name}")
             # 有角色时隐藏占位符标签，显示属性显示区域
             self._set_widget_visibility(False, True)
 
             # 更新分组框标题
             self._update_groupbox_titles()
         else:
-            print("[DEBUG LeftPanel] 角色被清空或选择了占位符")
+            self.logger.debug(f"角色被清空或选择了占位符")
             # 没有角色时显示占位符标签，隐藏属性显示区域
             self._set_widget_visibility(True, False)
 
@@ -191,7 +193,7 @@ class LeftPanel(QWidget):
 
     def on_character_cleared(self):
         """处理角色被清空"""
-        print("[DEBUG LeftPanel] on_character_cleared 被调用")
+        self.logger.debug(f"on_character_cleared 被调用")
 
         # 显示占位符标签，隐藏属性显示区域
         self._set_widget_visibility(True, False)
@@ -204,7 +206,7 @@ class LeftPanel(QWidget):
         self.basic_group_box.setTitle("角色基础属性")
         self.character_group_box.setTitle("角色面板属性")
 
-        print("[DEBUG LeftPanel] 已重置为占位符状态")
+        self.logger.debug(f"已重置为占位符状态")
 
     def _set_widget_visibility(self, show_placeholder: bool, show_stats: bool):
         """设置部件可见性（工具函数）
@@ -213,7 +215,7 @@ class LeftPanel(QWidget):
             show_placeholder: 是否显示占位符标签
             show_stats: 是否显示属性显示区域
         """
-        print(f"[DEBUG LeftPanel] 设置部件可见性: show_placeholder={show_placeholder}, show_stats={show_stats}")
+        self.logger.debug(f"设置部件可见性: show_placeholder={show_placeholder}, show_stats={show_stats}")
         self.basic_placeholder_label.setVisible(show_placeholder)
         self.basic_stats.setVisible(show_stats)
         self.character_placeholder_label.setVisible(show_placeholder)
@@ -235,17 +237,17 @@ class LeftPanel(QWidget):
 
     def _on_basic_attributes_updated(self, attributes: dict):
         """处理基础属性更新信号"""
-        print(f"[DEBUG LeftPanel] basic_attributes_updated: {len(attributes)} 个属性")
+        self.logger.debug(f"basic_attributes_updated: {len(attributes)} 个属性")
 
         # 只有基础属性区域显示时才更新
         settings = settings_manager.get_settings()
         if not settings.display.show_basic_attributes_section:
-            print("[DEBUG LeftPanel] 基础属性区域已隐藏，跳过更新")
+            self.logger.debug(f"基础属性区域已隐藏，跳过更新")
             return
 
         if not attributes:
             # 清空显示
-            print("[DEBUG LeftPanel] 清空基础属性显示")
+            self.logger.debug(f"清空基础属性显示")
             self.basic_stats.set_attributes([])
             return
 
@@ -257,17 +259,17 @@ class LeftPanel(QWidget):
 
     def _on_character_attributes_updated(self, attributes: dict):
         """处理角色属性更新信号"""
-        print(f"[DEBUG LeftPanel] character_attributes_updated: {len(attributes)} 个属性")
+        self.logger.debug(f"character_attributes_updated: {len(attributes)} 个属性")
 
         if not attributes:
             # 清空显示
-            print("[DEBUG LeftPanel] 清空角色属性显示")
+            self.logger.debug(f"清空角色属性显示")
             self.character_stats.set_attributes([])
             return
 
         # 格式化属性数据
         character_stats = FormatUtils().format_stats_with_recommendation(attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
-        print(f"[DEBUG LeftPanel] character_stats: {character_stats}")
+        self.logger.debug(f"character_stats: {character_stats}")
 
         # 更新显示
         self.update_character_stats(character_stats)
@@ -280,18 +282,18 @@ class LeftPanel(QWidget):
         if display_mode == 1:
             # 显示角色面板属性
             self.character_group_box.setTitle("角色面板属性")
-            print("[DEBUG LeftPanel] 更新标题: 角色面板属性")
+            self.logger.debug(f"更新标题: 角色面板属性")
         else:
             # 显示角色局内属性
             self.character_group_box.setTitle("角色局内属性")
-            print("[DEBUG LeftPanel] 更新标题: 角色局内属性")
+            self.logger.debug(f"更新标题: 角色局内属性")
 
     def _update_ui_visibility(self):
         """根据设置更新UI可见性"""
         settings = settings_manager.get_settings()
         show_basic = settings.display.show_basic_attributes_section
 
-        print(f"[DEBUG LeftPanel] 更新UI可见性: show_basic={show_basic}")
+        self.logger.debug(f"更新UI可见性: show_basic={show_basic}")
 
         if show_basic:
             # 显示基础属性区域
@@ -354,7 +356,7 @@ class LeftPanel(QWidget):
 
     def refresh_from_settings(self):
         """从设置刷新状态"""
-        print("[DEBUG LeftPanel] refresh_from_settings 被调用")
+        self.logger.debug(f"refresh_from_settings 被调用")
 
         # 更新分组框标题
         self._update_groupbox_titles()
@@ -365,13 +367,13 @@ class LeftPanel(QWidget):
         # 如果当前有角色，重新触发属性计算以更新显示
         current_state = self.state.get_state()
         if current_state.current_character:
-            print("[DEBUG LeftPanel] 重新计算属性以更新显示")
+            self.logger.debug(f"重新计算属性以更新显示")
             self.app_core.calculate_and_update()
 
         # 如果启用了基础属性显示，但当前没有基础属性数据，重新获取
         settings = settings_manager.get_settings()
         if settings.display.show_basic_attributes_section and current_state.current_character:
-            print("[DEBUG LeftPanel] 重新获取基础属性数据")
+            self.logger.debug(f"重新获取基础属性数据")
             # 触发基础属性计算
             if current_state.current_weapon:
                 base_attributes = self.app_core.calculator.calculate_with_weapon(
@@ -389,7 +391,7 @@ class LeftPanel(QWidget):
 
     def reset_to_placeholder(self):
         """重置为占位数据"""
-        print("[DEBUG LeftPanel] reset_to_placeholder 被调用")
+        self.logger.debug(f"reset_to_placeholder 被调用")
 
         # 显示占位符标签，隐藏属性显示区域
         self._set_widget_visibility(True, False)

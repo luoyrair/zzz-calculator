@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 from src.utils.attribute_utils import AttributeUtils
 from src.utils.data_utils import DataUtils
+from src.utils.logger import get_logger
 
 
 class JsonBreakthroughLevelData:
@@ -201,7 +202,7 @@ def parse_core_passive_data(data: Dict):
                 attrs[attr.name] = attr
 
             except Exception as e:
-                print(f"解析额外属性 {k} {v1.get('名称', '')} 失败: {e}")
+                logger.error(f"解析额外属性 {k} {v1.get('名称', '')} 失败: {str(e)}")
 
         core_passive_data.attrs = attrs
         core_passive.append(core_passive_data)
@@ -250,7 +251,6 @@ def parse_recommend_data(data: Dict):
                         recommend_data.gear_sub_attribute = AttributeUtils.get_attribute_by_name(sub_attr_list,
                                                                                                  v.get("名称"),
                                                                                                  unvalue_type=2)
-
                 else:
                     if isinstance(attr_format, str) and "%" in attr_format:
                         recommend_data.gear_mian_attribute[int(k[:-2]) - 1] = AttributeUtils.get_attribute_by_name(
@@ -259,11 +259,9 @@ def parse_recommend_data(data: Dict):
                         recommend_data.gear_mian_attribute[int(k[:-2]) - 1] = AttributeUtils.get_attribute_by_name(
                             main_attr_list, v.get("名称"), unvalue_type=2)
 
-
-
-
-
     elif data == {}:
         return None
 
     return recommend_data
+
+logger = get_logger("parsers.character")

@@ -2,8 +2,10 @@
 
 import json
 from dataclasses import dataclass, asdict
-from pathlib import Path
 from typing import Dict, Any
+
+from src.config.constants import PathConstants
+from src.utils.logger import get_logger
 
 
 @dataclass
@@ -106,12 +108,10 @@ class SettingsManager:
 
     def __init__(self):
         if not self._initialized:
-            self.data_dir = Path(__file__).parent.parent.parent / 'data'
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-            self.app_dir = self.data_dir / 'app'
+            self.logger = get_logger("settings")
+            self.app_dir = PathConstants().get_settings_dir()
             self.app_dir.mkdir(parents=True, exist_ok=True)
             self.settings_file = self.app_dir / 'settings.json'
-            print(self.settings_file)
             self.settings = self._load_settings()
             self.one_run_create_settings()
             self._initialized = True
@@ -124,7 +124,7 @@ class SettingsManager:
                     data = json.load(f)
                     return AppSettings.from_dict(data)
             except Exception as e:
-                print(f"加载设置失败: {e}")
+                self.logger.error(f"加载设置失败: {e}")
 
         # 返回默认设置
         return AppSettings()
@@ -136,16 +136,16 @@ class SettingsManager:
                 json.dump(self.settings.to_dict(), f, ensure_ascii=False, indent=2)
             return True
         except Exception as e:
-            print(f"保存设置失败创建: {e}")
+            self.logger.error(f"保存设置失败创建: {e}")
             return False
 
     def one_run_create_settings(self):
         """<UNK>"""
         if not self.settings_file.exists():
-            print(f"设置文件不存在, 创建默认设置文件")
+            self.logger.warning(f"设置文件不存在, 创建默认设置文件")
             self.save_settings()
         else:
-            print(f"设置文件存在, 使用存在的设置文件")
+            self.logger.info(f"设置文件存在, 使用存在的设置文件")
 
     def get_settings(self) -> AppSettings:
         """获取当前设置"""

@@ -5,16 +5,18 @@ from typing import Dict, List, Optional
 
 
 from src.config.constants import PathConstants
+from src.core.models import Character, Weapon, GearSet
 from src.parsers.character_parser import parse_character_data
 from src.parsers.gear_set_parser import parse_gear_set_data
 from src.parsers.weapon_parser import parse_weapon_data
-from src.core.models import Character, Weapon, GearSet
+from src.utils.logger import get_logger
 
 
 class SimpleDataManager:
     """简化数据管理器"""
 
     def __init__(self):
+        self.logger = get_logger("core.data_manager")
         self._loaded = False
 
         self._equipments: any = None
@@ -40,23 +42,21 @@ class SimpleDataManager:
 
             self._loaded = True
 
-            print(f"数据加载完成: {len(self.characters)}个角色数据文件, "
+            self.logger.debug(f"数据加载完成: {len(self.characters)}个角色数据文件, "
                   f"{len(self.weapons)}个音擎数据文件, "
                   f"{len(self.weapon_growth_data)}个音擎成长数据文件, "
                   f"{len(self.gear_sets)}个驱动盘套装数据文件。")
 
             return True
         except Exception as e:
-            print(f"加载数据失败: {e}")
-            import traceback
-            traceback.print_exc()
+            self.logger.error(f"加载数据失败: {str(e)}")
             return False
 
     def _load_characters(self):
         """加载角色数据"""
         chars_dir = self.data_dir / "characters"
         if not chars_dir.exists():
-            print(f"角色目录不存在: {chars_dir}")
+            self.logger.error(f"角色目录不存在: {chars_dir}")
             return
 
         for json_file in chars_dir.glob("*.json"):
@@ -84,15 +84,13 @@ class SimpleDataManager:
                 self.characters[character.id] = character
 
             except Exception as e:
-                print(f"加载角色文件失败 {json_file}: {e}")
-                import traceback
-                traceback.print_exc()
+                self.logger.error(f"加载角色文件失败 {json_file}: {str(e)}")
 
     def _load_weapons(self):
         """加载音擎数据"""
         weapons_dir = self.data_dir / "weapons"
         if not weapons_dir.exists():
-            print(f"音擎目录不存在: {weapons_dir}")
+            self.logger.error(f"音擎目录不存在: {weapons_dir}")
             return
 
         for json_file in weapons_dir.glob("*.json"):
@@ -118,15 +116,13 @@ class SimpleDataManager:
                 self.weapons[weapon.id] = weapon
 
             except Exception as e:
-                print(f"加载音擎文件失败 {json_file}: {e}")
-                import traceback
-                traceback.print_exc()
+                self.logger.error(f"加载音擎文件失败 {json_file}: {str(e)}")
 
     def _load_weapon_growth(self):
         """加载音擎成长数据"""
         weapon_growth_dir = self.data_dir / "weapons" / "growth"
         if not weapon_growth_dir.exists():
-            print(f"音擎成长数据目录不存在: {weapon_growth_dir}")
+            self.logger.error(f"音擎成长数据目录不存在: {weapon_growth_dir}")
             return
 
         # 加载所有成长数据文件
@@ -143,13 +139,13 @@ class SimpleDataManager:
                 self.weapon_growth_data[key] = data
 
             except Exception as e:
-                print(f"✗ 加载音擎成长数据失败 {json_file}: {e}")
+                self.logger.error(f"✗ 加载音擎成长数据失败 {json_file}: {str(e)}")
 
     def _load_gear_sets(self):
         """加载驱动盘套装数据"""
         gear_file = self.data_dir / "equipment" / "equipment.json"
         if not gear_file.exists():
-            print(f"驱动盘文件不存在: {gear_file}")
+            self.logger.error(f"驱动盘文件不存在: {gear_file}")
             return
 
         try:
@@ -169,7 +165,7 @@ class SimpleDataManager:
                 self.gear_sets[set_id] = gear_set
 
         except Exception as e:
-            print(f"加载驱动盘数据失败: {e}")
+            self.logger.error(f"加载驱动盘数据失败: {str(e)}")
 
     def get_character(self, character_id: int) -> Optional[Character]:
         """获取角色"""

@@ -12,6 +12,7 @@ from src.config.constants import AppConstants
 from src.ui.left_panel import LeftPanel
 from src.ui.right_panel import RightPanel
 from src.ui.settings_dialog import SettingsDialog
+from src.utils.logger import get_logger
 
 
 class MainWindow(QMainWindow):
@@ -19,8 +20,9 @@ class MainWindow(QMainWindow):
 
     def __init__(self, app_core):
         super().__init__()
+        self.logger = get_logger("ui.main_window")
 
-        print("初始化主窗口...")
+        self.logger.info("初始化主窗口...")
         self.app_core = app_core
         # 获取状态管理器实例
         from src.core.state_manager import StateManager
@@ -30,11 +32,9 @@ class MainWindow(QMainWindow):
             self._init_ui()
             self._setup_window()
             self._connect_signals()
-            print("✓ 主窗口初始化完成")
+            self.logger.info("✓ 主窗口初始化完成")
         except Exception as e:
-            print(f"✗ 主窗口初始化失败: {e}")
-            import traceback
-            traceback.print_exc()
+            self.logger.error(f"✗ 主窗口初始化失败: {e}")
 
     def _init_ui(self):
         """初始化UI"""
@@ -142,7 +142,7 @@ class MainWindow(QMainWindow):
 
             # 通知角色选项卡设置已更改
             if hasattr(self.right_panel, 'character_tab'):
-                print("[DEBUG MainWindow] 通知角色选项卡刷新设置")
+                self.logger.debug("通知角色选项卡刷新设置")
                 self.right_panel.character_tab.refresh_from_settings()
 
             # 重新调整分割器大小以确保布局正确
@@ -158,10 +158,10 @@ class MainWindow(QMainWindow):
             # 显示基础属性，调整分割器比例
             if hasattr(self.left_panel, 'splitter'):
                 self.left_panel.splitter.setSizes([300, 300])
-                print("[DEBUG MainWindow] 调整分割器：显示基础属性区域")
+                self.logger.debug("调整分割器：显示基础属性区域")
         else:
             # 隐藏基础属性，分割器会自动调整
-            print("[DEBUG MainWindow] 基础属性区域已隐藏")
+            self.logger.debug("基础属性区域已隐藏")
 
     def _on_character_changed(self, character):
         """处理角色变化"""

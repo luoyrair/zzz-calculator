@@ -6,6 +6,7 @@ from typing import Dict
 from src.core.attributes import AttributeName
 from src.utils.attribute_utils import AttributeUtils
 from src.utils.data_utils import DataUtils
+from src.utils.logger import get_logger
 
 
 class JsonTalentsData:
@@ -58,8 +59,8 @@ def parse_base_data(data: Dict):
         attack.base_value = data.get("base_attack", {}).get("值", 0)
         attack.source = 'weapon_base'
     else:
-        print("ERROR 解析音擎基础攻击力失败")
-        print("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
+        logger.error("解析音擎基础攻击力失败")
+        logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
     attr = AttributeUtils.get_attribute_by_name(
         atte_list,
@@ -76,8 +77,8 @@ def parse_base_data(data: Dict):
 
         attr.source = 'weapon_main'
     else:
-        print("ERROR 解析音擎高级属性失败")
-        print("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
+        logger.error("解析音擎高级属性失败")
+        logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
     return attack, attr
 
@@ -114,8 +115,8 @@ def parse_talents_data(data: Dict):
                         attr.source = 'weapon_talent'
                         attrs.append(attr)
                     else:
-                        print("ERROR 解析音擎天赋属性失败")
-                        print("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
+                        logger.error("解析音擎天赋属性失败")
+                        logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
                     break
 
@@ -123,3 +124,5 @@ def parse_talents_data(data: Dict):
     talents_data.attrs = attrs
 
     return talents_data
+
+logger = get_logger("parsers.weapon")

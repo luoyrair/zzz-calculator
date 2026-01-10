@@ -4,19 +4,21 @@
 """
 
 import sys
-from pathlib import Path
 
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import QApplication
 
-from src.ui.main_window import MainWindow
+from src.config.constants import PathConstants
 from src.core.app import ApplicationCore
+from src.ui.main_window import MainWindow
+from src.utils.logger import get_logger
 
 
 class ZZZUIApplication:
     """UI应用程序 - 适配新架构"""
 
     def __init__(self):
+        self.logger = get_logger("ui.app")
         # 初始化应用核心
         self.app_core = ApplicationCore()
 
@@ -50,7 +52,7 @@ class ZZZUIApplication:
         """加载样式表"""
         try:
             # 尝试从文件加载样式
-            style_file = Path(__file__).parent / "styles" / "style.qss"
+            style_file = PathConstants().get_settings_dir() / "styles" / "style.qss"
             if style_file.exists():
                 with open(style_file, 'r', encoding='utf-8') as f:
                     style = f.read()
@@ -59,7 +61,7 @@ class ZZZUIApplication:
                 # 使用内联样式
                 self._apply_inline_styles()
         except Exception as e:
-            print(f"加载样式表失败: {e}")
+            self.logger.error(f"加载样式表失败: {e}")
             self._apply_inline_styles()
 
     def _apply_inline_styles(self):

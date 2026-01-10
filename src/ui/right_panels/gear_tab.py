@@ -11,6 +11,7 @@ from src.ui.widgets.gear_widgets import (
     GearSetConfigWidget, GearPieceEditor, get_sub_attribute_by_index,
 )
 from src.utils.gear_utils import GearUtils
+from src.utils.logger import get_logger
 
 
 class GearTab(QWidget):
@@ -18,6 +19,7 @@ class GearTab(QWidget):
 
     def __init__(self, app_core):
         super().__init__()
+        self.logger = get_logger("ui.gear_tab")
         self.app_core = app_core
 
         # 存储驱动盘编辑器

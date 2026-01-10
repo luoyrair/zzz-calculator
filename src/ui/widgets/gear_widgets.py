@@ -9,10 +9,11 @@ from PyQt6.QtWidgets import (
     QLabel, QComboBox, QSpinBox, QFrame, QSizePolicy
 )
 
+from src.config.settings import settings_manager
 from src.core.attributes import gear_sub_attribute
 from src.utils.format_utils import FormatUtils
 from src.utils.gear_utils import GearUtils
-from src.config.settings import settings_manager
+from src.utils.logger import get_logger
 
 
 def get_sub_attribute_by_index(index: int):
@@ -29,6 +30,7 @@ class GearSetConfigWidget(QWidget):
 
     def __init__(self, data_manager, parent=None):
         super().__init__(parent)
+        self.logger = get_logger(f"ui.gear_set")
         self.data_manager = data_manager
 
         # 获取状态管理器实例
@@ -149,7 +151,7 @@ class GearSetConfigWidget(QWidget):
             self.set_options = set_options
         else:
             self.set_options = []
-            print("警告: 未获取到套装选项")
+            self.logger.warning("警告: 未获取到套装选项")
             return
 
         # 根据当前模式填充套装选项
@@ -158,7 +160,7 @@ class GearSetConfigWidget(QWidget):
         else:
             self._populate_all_combos_without_recommendations()
 
-        print(f"已填充套装选项: {len(self.set_options)}个")
+        self.logger.info(f"已填充套装选项: {len(self.set_options)}个")
 
     def _populate_all_combos_with_recommendations(self):
         """为所有组合框填充带推荐标记的选项（4+2模式）"""
@@ -249,7 +251,7 @@ class GearSetConfigWidget(QWidget):
         self.updating = True
         try:
             mode_text = "4+2" if index == 0 else "2+2+2"
-            print(f"套装模式已更改为: {mode_text}")
+            self.logger.info(f"套装模式已更改为: {mode_text}")
 
             # 重新创建对应模式的UI
             if index == 0:
@@ -356,16 +358,16 @@ class GearSetConfigWidget(QWidget):
         # 获取推荐数据
         recommend_data = current_state.recommend_data if current_state.current_character else None
 
-        print(f"[DEBUG GearSetConfig] update_set_combo_colors: recommend_data={recommend_data}")
+        self.logger.debug(f"update_set_combo_colors: recommend_data={recommend_data}")
 
         if not recommend_data:
             # 如果没有推荐数据，清除所有颜色标记
             if hasattr(self, 'four_set_combo'):
-                print("[DEBUG GearSetConfig] 清除4件套组合框颜色")
+                self.logger.debug(f"清除4件套组合框颜色")
                 self._populate_combo_without_colors(self.four_set_combo)
 
             if hasattr(self, 'two_set_combo'):
-                print("[DEBUG GearSetConfig] 清除2件套组合框颜色")
+                self.logger.debug(f"清除2件套组合框颜色")
                 self._populate_combo_without_colors(self.two_set_combo)
             return
 
@@ -454,6 +456,7 @@ class GearPieceEditor(QFrame):
 
     def __init__(self, position, parent=None):
         super().__init__(parent)
+        self.logger = get_logger(f"ui.gear_editor_{position}")
         self.position = position
 
         # 获取状态管理器实例
@@ -695,8 +698,7 @@ class GearPieceEditor(QFrame):
         value_label = self.sub_value_labels[sub_index]
 
         # 发送信号
-        print(
-            f"[DEBUG GearEditor] 发射副属性信号: position={self.position}, sub_idx={sub_index}, attr_id={selected_sub_id}")
+        self.logger.debug(f"发射副属性信号: position={self.position}, sub_idx={sub_index}, attr_id={selected_sub_id}")
         self._send_sub_attributes_changed_signal(selected_sub_id, sub_index)
 
         if index <= 0 or selected_sub_id == -1:
@@ -978,12 +980,12 @@ class GearPieceEditor(QFrame):
 
     def _on_state_character_changed(self, character):
         """处理角色变化 - 更新推荐显示"""
-        print(f"[DEBUG GearEditor{self.position}] 角色变化: {character.name if character else 'None'}")
+        self.logger.debug(f"角色变化: {character.name if character else 'None'}")
         self._update_attribute_colors()
 
     def _update_attribute_colors(self):
         """更新属性选择的颜色显示"""
-        print(f"[DEBUG GearEditor{self.position}] _update_attribute_colors")
+        self.logger.debug(f"_update_attribute_colors")
         self._update_main_combo_colors()
         self.update_sub_combo_colors()
 
@@ -996,14 +998,14 @@ class GearPieceEditor(QFrame):
         # 检查设置：是否使用原始推荐数据
         settings = settings_manager.get_settings()
         if not settings.auto_select.use_original_recommendations:
-            print(f"[DEBUG GearEditor{self.position}] 推荐数据已禁用，清除主属性颜色")
+            self.logger.debug(f"推荐数据已禁用，清除主属性颜色")
             # 清除所有颜色标记，恢复为黑色
             for i in range(self.main_combo.count()):
                 self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
 
         if not recommend_data or not hasattr(recommend_data, 'gear_mian_attribute'):
-            print(f"[DEBUG GearEditor{self.position}] 没有推荐数据，清除主属性颜色")
+            self.logger.debug(f"没有推荐数据，清除主属性颜色")
             # 清除所有颜色标记
             for i in range(self.main_combo.count()):
                 self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
@@ -1011,13 +1013,13 @@ class GearPieceEditor(QFrame):
 
         recommended_main = recommend_data.gear_mian_attribute.get(self.position)
         if not recommended_main:
-            print(f"[DEBUG GearEditor{self.position}] 该位置没有推荐主属性")
+            self.logger.debug(f"该位置没有推荐主属性")
             # 清除所有颜色标记
             for i in range(self.main_combo.count()):
                 self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
 
-        print(f"[DEBUG GearEditor{self.position}] 推荐主属性: {recommended_main.name}")
+        self.logger.debug(f"推荐主属性: {recommended_main.name}")
 
         for i in range(self.main_combo.count()):
             data = self.main_combo.itemData(i)
@@ -1028,7 +1030,7 @@ class GearPieceEditor(QFrame):
                     is_recommended = attr.name == recommended_main.name
 
                     if is_recommended:
-                        print(f"[DEBUG GearEditor{self.position}] 设置索引 {i} 为橙色")
+                        self.logger.debug(f"设置索引 {i} 为橙色")
                         self.main_combo.setItemData(i, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
                     else:
                         self.main_combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
@@ -1042,7 +1044,7 @@ class GearPieceEditor(QFrame):
         # 检查设置：是否使用原始推荐数据
         settings = settings_manager.get_settings()
         if not settings.auto_select.use_original_recommendations:
-            print(f"[DEBUG GearEditor{self.position}] 推荐数据已禁用，清除副属性颜色")
+            self.logger.debug(f"推荐数据已禁用，清除副属性颜色")
             # 清除所有颜色标记，恢复为黑色
             for combo in self.sub_combos:
                 for i in range(combo.count()):
@@ -1050,7 +1052,7 @@ class GearPieceEditor(QFrame):
             return
 
         if not recommend_data or not hasattr(recommend_data, 'gear_sub_attribute'):
-            print(f"[DEBUG GearEditor{self.position}] 没有推荐数据，清除副属性颜色")
+            self.logger.debug(f"没有推荐数据，清除副属性颜色")
             # 清除所有颜色标记
             for combo in self.sub_combos:
                 for i in range(combo.count()):
@@ -1059,14 +1061,14 @@ class GearPieceEditor(QFrame):
 
         recommended_sub = recommend_data.gear_sub_attribute
         if not recommended_sub:
-            print(f"[DEBUG GearEditor{self.position}] 没有推荐副属性")
+            self.logger.debug(f"没有推荐副属性")
             # 清除所有颜色标记
             for combo in self.sub_combos:
                 for i in range(combo.count()):
                     combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
             return
 
-        print(f"[DEBUG GearEditor{self.position}] 推荐副属性: {recommended_sub.name}")
+        self.logger.debug(f"推荐副属性: {recommended_sub.name}")
 
         for combo in self.sub_combos:
             for i in range(combo.count()):
@@ -1074,7 +1076,7 @@ class GearPieceEditor(QFrame):
                 if data is not None and data >= 0:
                     sub_attr = get_sub_attribute_by_index(data)
                     if sub_attr and sub_attr.name == recommended_sub.name and sub_attr.value_type == recommended_sub.value_type:
-                        print(f"[DEBUG GearEditor{self.position}] 设置副属性组合框索引 {i} 为橙色")
+                        self.logger.debug(f"设置副属性组合框索引 {i} 为橙色")
                         combo.setItemData(i, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
                     else:
                         combo.setItemData(i, QColor("#000000"), Qt.ItemDataRole.ForegroundRole)
