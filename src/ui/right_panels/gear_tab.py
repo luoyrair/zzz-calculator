@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QLabel, QSpinBox, QPushButton, QMessageBox
 )
 
+from src.core.attribute_factory import AttributeFactory
 from src.ui.widgets.gear_widgets import (
     GearSetConfigWidget, GearPieceEditor, get_sub_attribute_by_index,
 )
@@ -173,7 +174,12 @@ class GearTab(QWidget):
         if not (0 <= main_attr_idx < len(main_attrs)):
             return
 
-        main_attr = main_attrs[main_attr_idx].get_enhance_attr("GearTab", level)
+        main_attr_name, main_attr_value_type = main_attrs[main_attr_idx]
+
+        main_attr = AttributeFactory().gear_main(main_attr_name, main_attr_value_type, level)
+        print(main_attr)
+        print(level)
+
         self.app_core.set_gear_piece(
             position=position,
             main_attribute=main_attr,
@@ -182,7 +188,11 @@ class GearTab(QWidget):
 
     def _on_sub_attributes_changed(self, position, sub_idx, sub_attr_idx, enhance_level):
         """处理驱动盘副属性变化"""
-        sub_attr = get_sub_attribute_by_index(sub_attr_idx).get_enhance_attr("GearTab", enhance_level)
+        sub_attr = get_sub_attribute_by_index(sub_attr_idx)
+
+        name, value_type = sub_attr
+
+        sub_attr = AttributeFactory.gear_sub(name,value_type,enhance_level)
 
         if not sub_attr:
             return

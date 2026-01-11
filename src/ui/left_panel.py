@@ -354,41 +354,6 @@ class LeftPanel(QWidget):
 
         return stats_data
 
-    def refresh_from_settings(self):
-        """从设置刷新状态"""
-        self.logger.debug(f"refresh_from_settings 被调用")
-
-        # 更新分组框标题
-        self._update_groupbox_titles()
-
-        # 更新UI可见性
-        self._update_ui_visibility()
-
-        # 如果当前有角色，重新触发属性计算以更新显示
-        current_state = self.state.get_state()
-        if current_state.current_character:
-            self.logger.debug(f"重新计算属性以更新显示")
-            self.app_core.calculate_and_update()
-
-        # 如果启用了基础属性显示，但当前没有基础属性数据，重新获取
-        settings = settings_manager.get_settings()
-        if settings.display.show_basic_attributes_section and current_state.current_character:
-            self.logger.debug(f"重新获取基础属性数据")
-            # 触发基础属性计算
-            if current_state.current_weapon:
-                base_attributes = self.app_core.calculator.calculate_with_weapon(
-                    current_state.current_character,
-                    current_state.current_weapon,
-                    include_talent=False
-                )
-            else:
-                base_attributes = self.app_core.calculator.calculate_character_only(
-                    current_state.current_character
-                )
-
-            # 手动发送信号更新显示
-            self._on_basic_attributes_updated(base_attributes)
-
     def reset_to_placeholder(self):
         """重置为占位数据"""
         self.logger.debug(f"reset_to_placeholder 被调用")

@@ -1,9 +1,8 @@
-import copy
 import re
 from dataclasses import dataclass
 from typing import Dict
 
-from src.core.attributes import AttributeName
+from src.core.attribute_factory import AttributeFactory
 from src.utils.attribute_utils import AttributeUtils
 from src.utils.data_utils import DataUtils
 from src.utils.logger import get_logger
@@ -45,48 +44,41 @@ def parse_weapon_data(data: Dict):
 
     return result
 
-
 def parse_base_data(data: Dict):
-    atte_list = AttributeUtils.create_weapon_base_attribute_list()
 
-    attack = AttributeUtils.get_attribute_by_name(
-        atte_list,
-        data.get("base_attack", {}).get("名称", ""),
-        value_type=1
-    )
-
-    if attack is not None:
-        attack.base_value = data.get("base_attack", {}).get("值", 0)
-        attack.source = 'weapon_base'
+    if data.get("base_attack", {}).get("名称", ""):
+        attack = AttributeFactory.weapon_base_atk(data.get("base_attack", {}).get("值", 0))
     else:
+        attack = None
         logger.error("解析音擎基础攻击力失败")
         logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
-    attr = AttributeUtils.get_attribute_by_name(
-        atte_list,
-        data.get("advanced_attribute", {}).get("名称", ""),
-        unname=AttributeName.ATK,
-        unvalue_type=1
-    )
+    advanced_attribute = data.get("advanced_attribute", {})
 
-    if attr is not None:
-        if attr.value_type == 2:
-            attr.base_value = data.get("advanced_attribute", {}).get("值", 0) / 10000.0
+    if advanced_attribute.get("名称", ""):
+        attr_value = advanced_attribute.get("值", 0)
+        attr_format = advanced_attribute.get("格式", "")
+
+        # 规范化数值
+        attr_value = DataUtils.normalize_value(attr_value, 'float')
+        if isinstance(attr_format, str) and "%" in attr_format:
+            if attr_value != 0:
+                attr_value /= 10000.0
+            attr = AttributeFactory.weapon_main_attr(name=advanced_attribute.get("名称", ""),
+                                                     value=attr_value, value_type=2)
         else:
-            attr.base_value = data.get("advanced_attribute", {}).get("值", 0)
-
-        attr.source = 'weapon_main'
+            attr = AttributeFactory.weapon_main_attr(name=advanced_attribute.get("名称", ""),
+                                                     value=attr_value, value_type=1)
     else:
+        attr = None
         logger.error("解析音擎高级属性失败")
         logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
     return attack, attr
 
-
 def parse_talents_data(data: Dict):
     talents_data = JsonTalentsData()
     attrs = []
-    attr_list = AttributeUtils.create_weapon_talent_attribute_list()
     talent_name = None
     attribute_patterns = AttributeUtils.get_weapon_attribute_patterns()
 
@@ -99,26 +91,22 @@ def parse_talents_data(data: Dict):
             for pattern_info in attribute_patterns:
                 pattern = re.compile(pattern_info['pattern'])
                 match = pattern.match(text)
-
                 if match:
                     value_str = match.group(1)
                     value = DataUtils.normalize_value(value_str, 'float')
 
-                    attr = AttributeUtils.get_attribute_by_name(attr_list, pattern_info["attribute_id"])
-                    if attr:
-                        attr = copy.deepcopy(attr)
-                        attr.base_value = value
+                    if isinstance(pattern, str) and "%" in pattern:
 
-                        if attr.name not in [AttributeName.A_M, AttributeName.E_R]:
-                            attr.base_value /= 100
-
-                        attr.source = 'weapon_talent'
-                        attrs.append(attr)
+                        attr = AttributeFactory.weapon_talent(name=pattern_info["attribute_id"],
+                                                              value=value, value_type=2)
                     else:
-                        logger.error("解析音擎天赋属性失败")
-                        logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
-
+                        attr = AttributeFactory.weapon_talent(name=pattern_info["attribute_id"],
+                                                              value=value, value_type=1)
+                    attrs.append(attr)
                     break
+        else:
+            logger.error("解析音擎天赋属性失败")
+            logger.error("请检查使用的数据信息，请使用最新的数据信息，非项目开发人员提供的数据信息可能和您使用的计算器不适配")
 
     talents_data.name = talent_name
     talents_data.attrs = attrs

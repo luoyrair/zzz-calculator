@@ -1,6 +1,6 @@
-import copy
 from typing import Dict
 
+from src.core.attribute_factory import AttributeFactory
 from src.utils.attribute_utils import AttributeUtils
 
 
@@ -17,7 +17,6 @@ class JsonGearSetParsedData:
 
 
 def parse_gear_set_data(data):
-    attr_list = AttributeUtils.create_gear_set_effect_attribute_list()
     attribute_patterns = AttributeUtils.get_gear_set_attribute_patterns()
 
     d = {}
@@ -30,12 +29,9 @@ def parse_gear_set_data(data):
         # 解析2件套效果
         result = AttributeUtils.parse_attribute_value_from_text(v["2件套"], attribute_patterns)
         if result:
-            attr_name, value = result
-            attr = AttributeUtils.get_attribute_by_name(attr_list, attr_name)
-            if attr:
-                attr = copy.deepcopy(attr)
-                attr.base_value = value
-                gear_set_data.effect2 = attr
+            attr_name, value, value_type = result
+            attr = AttributeFactory.gear_set(attr_name, value, value_type)
+            gear_set_data.effect2 = attr
 
         d[k] = gear_set_data
 

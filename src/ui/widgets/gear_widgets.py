@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 
 from src.config.settings import settings_manager
-from src.core.attributes import gear_sub_attribute
+from src.core.attribute_factory import AttributeFactory
 from src.utils.format_utils import FormatUtils
 from src.utils.gear_utils import GearUtils
 from src.utils.logger import get_logger
@@ -18,8 +18,9 @@ from src.utils.logger import get_logger
 
 def get_sub_attribute_by_index(index: int):
     """根据索引获取副属性"""
-    if 0 <= index < len(gear_sub_attribute):
-        return gear_sub_attribute[index]
+    sub_attrs = GearUtils.get_sub_attributes()
+    if 0 <= index < len(sub_attrs):
+        return sub_attrs[index]
     return None
 
 
@@ -662,20 +663,15 @@ class GearPieceEditor(QFrame):
         if main_attr_idx is None or main_attr_idx < 0:
             self.main_value_label.setText("")
             return
+        main_attr_name_list = GearUtils.get_main_attributes_by_position(self.position)
+        main_attr_name, main_attr_value_type = main_attr_name_list[main_attr_idx]
 
-        main_attr = GearUtils.get_main_attribute_by_index(self.position, main_attr_idx)
+        main_attr = AttributeFactory().gear_main(main_attr_name, main_attr_value_type, self.global_enhance_level)
         if not main_attr:
             return
 
-        from src.utils.calculation_utils import CalculationUtils
-        value = CalculationUtils.calculate_enhanced_value(
-            main_attr.base_value,
-            main_attr.growth,
-            self.global_enhance_level
-        )
-
         self.main_value_label.setText(
-            FormatUtils.format_attribute_display(main_attr.name, value)
+            FormatUtils.format_attribute_display(main_attr.name, main_attr.base_value)
         )
 
     def _emit_main_attribute_signal(self):
@@ -750,7 +746,7 @@ class GearPieceEditor(QFrame):
         self.updating = True
 
         try:
-            main_attrs = GearUtils.get_main_attributes_by_position(self.position)
+            main_attr_name_list = GearUtils.get_main_attributes_by_position(self.position)
             current_data = self.main_combo.currentData()
 
             self.main_combo.clear()
@@ -766,9 +762,9 @@ class GearPieceEditor(QFrame):
                 recommended_main = recommend_data.gear_mian_attribute.get(self.position)
 
             # 添加所有主属性
-            for idx, main_attr in enumerate(main_attrs):
-                is_recommended = recommended_main and hasattr(recommended_main, 'name') and main_attr.name == recommended_main.name
-                self._add_main_attr_item(main_attr, idx, is_recommended)
+            for idx, (main_attr_name, value) in enumerate(main_attr_name_list):
+                is_recommended = recommended_main and hasattr(recommended_main, 'name') and main_attr_name == recommended_main.name
+                self._add_main_attr_item(main_attr_name, idx, is_recommended)
 
             # 恢复选择
             self._restore_main_attr_selection(current_data)
@@ -776,15 +772,15 @@ class GearPieceEditor(QFrame):
         finally:
             self.updating = False
 
-    def _add_main_attr_item(self, main_attr, idx, is_recommended):
+    def _add_main_attr_item(self, main_attr_name, idx, is_recommended):
         """添加主属性项到组合框"""
         if is_recommended:
-            display_text = f"{main_attr.name}"
+            display_text = f"{main_attr_name}"
             self.main_combo.addItem(display_text, idx)
             index = self.main_combo.count() - 1
             self.main_combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
         else:
-            self.main_combo.addItem(main_attr.name, idx)
+            self.main_combo.addItem(main_attr_name, idx)
 
     def _restore_main_attr_selection(self, current_data):
         """恢复主属性选择"""
@@ -810,18 +806,18 @@ class GearPieceEditor(QFrame):
             # 没有选择主属性时显示所有副属性
             if main_attr_idx is None or main_attr_idx == -1:
                 for combo in self.sub_combos:
-                    self._populate_sub_combo(combo, gear_sub_attribute, [])
+                    self._populate_sub_combo(combo, GearUtils.get_sub_attributes(), [])
                 return
 
             # 获取主属性对象
             if main_attr_idx < len(main_attrs):
-                selected_main = main_attrs[main_attr_idx]
+                main, value_type = main_attrs[main_attr_idx]
 
                 # 更新每个副属性组合框
                 for i, combo in enumerate(self.sub_combos):
                     current_sub_id = combo.currentData()
                     other_selected = self._get_other_selected_sub_attributes(i)
-                    available_subs = self._get_available_sub_attributes(selected_main, other_selected)
+                    available_subs = self._get_available_sub_attributes([main, value_type], other_selected)
                     self._populate_sub_combo(combo, available_subs, current_sub_id)
 
         finally:
@@ -830,13 +826,14 @@ class GearPieceEditor(QFrame):
     def _get_other_selected_sub_attributes(self, exclude_index):
         """获取其他组合框已选择的副属性"""
         other_selected = []
-        sub_attrs = gear_sub_attribute
+        sub_attrs = GearUtils.get_sub_attributes()
 
         for j, other_combo in enumerate(self.sub_combos):
             if j != exclude_index:
                 other_sub_id = other_combo.currentData()
                 if other_sub_id is not None and 0 <= other_sub_id < len(sub_attrs):
-                    other_selected.append(sub_attrs[other_sub_id])
+                    sub_attr_name, sub_attr_value_type = sub_attrs[other_sub_id]
+                    other_selected.append((sub_attr_name, sub_attr_value_type))
 
         return other_selected
 
@@ -845,22 +842,22 @@ class GearPieceEditor(QFrame):
         """获取可用的副属性列表"""
         available = []
 
-        for sub_attr in gear_sub_attribute:
+        for sub_attr_name, sub_attr_value_type in GearUtils.get_sub_attributes():
             # 跳过主属性
-            if (sub_attr.name == main_attr.name and
-                    sub_attr.value_type == main_attr.value_type):
+            if (sub_attr_name == main_attr[0] and
+                    main_attr[1] == sub_attr_value_type):
                 continue
 
             # 跳过其他已选择的副属性
             skip = False
-            for sa in selected_attrs:
-                if (sub_attr.name == sa.name and
-                        sub_attr.value_type == sa.value_type):
+            for sa_name, sa_value_type in selected_attrs:
+                if (sub_attr_name == sa_name and
+                        sub_attr_value_type == sa_value_type):
                     skip = True
                     break
 
             if not skip:
-                available.append(sub_attr)
+                available.append((sub_attr_name, sub_attr_value_type))
 
         return available
 
@@ -881,11 +878,11 @@ class GearPieceEditor(QFrame):
             if recommend_data and hasattr(recommend_data, 'gear_sub_attribute'):
                 recommended_sub = recommend_data.gear_sub_attribute
 
-            for sub_attr in sub_attrs:
+            for sub_attr_name, sub_attr_value_type in sub_attrs:
                 try:
-                    idx = gear_sub_attribute.index(sub_attr)
-                    is_recommended = GearUtils.is_sub_attr_recommended(sub_attr, recommended_sub)
-                    GearUtils.add_sub_attr_item(combo, sub_attr, idx, is_recommended)
+                    idx = GearUtils.get_sub_attributes().index((sub_attr_name, sub_attr_value_type))
+                    is_recommended = GearUtils.is_sub_attr_recommended(sub_attr_name, sub_attr_value_type, recommended_sub)
+                    GearUtils.add_sub_attr_item(combo, sub_attr_name, sub_attr_value_type, idx, is_recommended)
                 except ValueError:
                     continue
 
@@ -906,17 +903,15 @@ class GearPieceEditor(QFrame):
             self.sub_value_labels[sub_index].setText("")
             return
 
-        sub_attr = get_sub_attribute_by_index(sub_id)
+        sub_attr_name, sub_attr_value_type  = get_sub_attribute_by_index(sub_id)
+        enhance_level = self.sub_enhance_spinboxes[sub_index].value()
+        sub_attr = AttributeFactory.gear_sub(sub_attr_name, sub_attr_value_type, enhance_level)
+
         if not sub_attr:
             return
 
-        from src.utils.calculation_utils import CalculationUtils
-        enhance_level = self.sub_enhance_spinboxes[sub_index].value()
-        value = CalculationUtils.calculate_enhanced_value(
-            sub_attr.base_value,
-            sub_attr.growth,
-            enhance_level
-        )
+        value = sub_attr.base_value
+
         if sub_attr.value_type == 2:
             value = f"{value * 100}%"
 
@@ -1024,10 +1019,10 @@ class GearPieceEditor(QFrame):
         for i in range(self.main_combo.count()):
             data = self.main_combo.itemData(i)
             if data is not None and data >= 0:
-                main_attrs = GearUtils.get_main_attributes_by_position(self.position)
-                if data < len(main_attrs):
-                    attr = main_attrs[data]
-                    is_recommended = attr.name == recommended_main.name
+                main_attr_name_list = GearUtils.get_main_attributes_by_position(self.position)
+                if data < len(main_attr_name_list):
+                    attr_name, value_type = main_attr_name_list[data]
+                    is_recommended = attr_name == recommended_main.name
 
                     if is_recommended:
                         self.logger.debug(f"设置索引 {i} 为橙色")
@@ -1074,8 +1069,8 @@ class GearPieceEditor(QFrame):
             for i in range(combo.count()):
                 data = combo.itemData(i)
                 if data is not None and data >= 0:
-                    sub_attr = get_sub_attribute_by_index(data)
-                    if sub_attr and sub_attr.name == recommended_sub.name and sub_attr.value_type == recommended_sub.value_type:
+                    sub_attr_name, sub_attr_value_type = get_sub_attribute_by_index(data)
+                    if sub_attr_name == recommended_sub.name and sub_attr_value_type == recommended_sub.value_type:
                         self.logger.debug(f"设置副属性组合框索引 {i} 为橙色")
                         combo.setItemData(i, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
                     else:
@@ -1120,19 +1115,3 @@ class GearPieceEditor(QFrame):
 
         self.main_value_label.setText("")
         self._clear_all_sub_selections()
-
-    def get_selected_sub_indices(self):
-        """获取已选择的副属性索引和强化等级"""
-        sub_attr_indices = {}
-        sub_enhance_levels = {}
-
-        for i, combo in enumerate(self.sub_combos):
-            sub_id = combo.currentData()
-            if sub_id is not None and sub_id >= 0:
-                sub_attr = get_sub_attribute_by_index(sub_id)
-                if sub_attr:
-                    sub_attr_indices[i] = sub_attr
-                    enhance_level = self.sub_enhance_spinboxes[i].value()
-                    sub_enhance_levels[i] = enhance_level
-
-        return sub_attr_indices, sub_enhance_levels

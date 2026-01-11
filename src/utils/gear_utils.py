@@ -1,51 +1,62 @@
 """
 驱动盘相关工具函数
 """
-
-from typing import List
+from typing import List, Tuple
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
-
-from src.core.attributes import gear_main_attribute
 
 
 class GearUtils:
     """驱动盘工具类"""
 
-    # 主属性列表（按位置分组）
-    gear_main_attribute_list = [
-        [gear_main_attribute[0]],  # 位置1
-        [gear_main_attribute[2]],  # 位置2
-        [gear_main_attribute[4]],  # 位置3
-        [  # 位置4
-            gear_main_attribute[1],
-            gear_main_attribute[3],
-            gear_main_attribute[5],
-            gear_main_attribute[7],
-            gear_main_attribute[8],
-            gear_main_attribute[11],
-        ],
-        [  # 位置5
-            gear_main_attribute[1],
-            gear_main_attribute[3],
-            gear_main_attribute[5],
-            gear_main_attribute[9],
-            gear_main_attribute[13],
-            gear_main_attribute[14],
-            gear_main_attribute[15],
-            gear_main_attribute[16],
-            gear_main_attribute[17],
-        ],
-        [  # 位置6
-            gear_main_attribute[1],
-            gear_main_attribute[3],
-            gear_main_attribute[5],
-            gear_main_attribute[10],
-            gear_main_attribute[6],
-            gear_main_attribute[11],
+    @staticmethod
+    def get_main_attributes_by_position(position: int) -> List[Tuple[str, int]]:
+        """根据位置获取主属性名称列表"""
+        # 位置0-5的主属性
+        position_main_attrs = {
+            0: [("生命值", 1)],  # 位置1
+            1: [("攻击力", 1)],  # 位置2
+            2: [("防御力", 1)],  # 位置3
+            3: [  # 位置4
+                ("生命值", 2), ("攻击力", 2), ("防御力", 2),
+                ("暴击率", 2), ("暴击伤害", 2), ("异常精通", 1)
+            ],
+            4: [  # 位置5
+                ("生命值", 2), ("攻击力", 2), ("防御力", 2), ("穿透率", 2),
+                ("物理伤害加成", 2), ("火属性伤害加成", 2), ("冰属性伤害加成", 2),
+                ("电属性伤害加成", 2), ("以太伤害加成", 2)
+            ],
+            5: [  # 位置6
+                ("生命值", 2), ("攻击力", 2), ("防御力", 2),
+                ("能量自动回复", 2), ("冲击力", 2), ("异常掌控", 2)
+            ]
+        }
+        return position_main_attrs.get(position, [])
+
+    @staticmethod
+    def get_sub_attributes() -> List[Tuple[str, int]]:
+        """获取副属性列表（名称和类型）"""
+        return [
+            ("生命值", 1),  # 数值型
+            ("生命值", 2),  # 百分比型
+            ("攻击力", 1),  # 数值型
+            ("攻击力", 2),  # 百分比型
+            ("防御力", 1),  # 数值型
+            ("防御力", 2),  # 百分比型
+            ("暴击率", 2),  # 百分比型
+            ("暴击伤害", 2),  # 百分比型
+            ("异常精通", 1),  # 数值型
+            ("穿透值", 1),  # 数值型
         ]
-    ]
+
+    @staticmethod
+    def get_position_name(position: int) -> str:
+        """获取位置名称"""
+        position_names = ["1号盘", "2号盘", "3号盘", "4号盘", "5号盘", "6号盘"]
+        return position_names[position] if 0 <= position < len(position_names) else f"位置{position + 1}"
+
+    # ========== UI相关工具方法 ==========
 
     @staticmethod
     def add_set_item_to_combo(combo, set_id, set_name, is_recommended=False):
@@ -59,9 +70,9 @@ class GearUtils:
             combo.addItem(set_name, set_id)
 
     @staticmethod
-    def add_sub_attr_item(combo, sub_attr, idx, is_recommended):
+    def add_sub_attr_item(combo, sub_attr_name, sub_attr_value_type, idx, is_recommended):
         """添加副属性项到组合框"""
-        name = sub_attr.name + "%" if sub_attr.value_type == 2 else sub_attr.name
+        name = sub_attr_name + "%" if sub_attr_value_type == 2 else sub_attr_name
 
         if is_recommended:
             display_text = f"{name}"
@@ -99,30 +110,9 @@ class GearUtils:
             combo.setCurrentIndex(0)
 
     @staticmethod
-    def is_sub_attr_recommended(sub_attr, recommended_sub):
+    def is_sub_attr_recommended(sub_attr_name, sub_attr_value_type, recommended_sub):
         """检查副属性是否为推荐属性"""
         if not recommended_sub or not hasattr(recommended_sub, 'name'):
             return False
-        return (sub_attr.name == recommended_sub.name and
-                sub_attr.value_type == recommended_sub.value_type)
-
-    @staticmethod
-    def get_position_name(position: int) -> str:
-        """获取位置名称"""
-        position_names = ["1号盘", "2号盘", "3号盘", "4号盘", "5号盘", "6号盘"]
-        return position_names[position] if 0 <= position < len(position_names) else f"位置{position + 1}"
-
-    @staticmethod
-    def get_main_attributes_by_position(position: int) -> List:
-        """根据位置获取主属性列表"""
-        if 0 <= position < len(GearUtils.gear_main_attribute_list):
-            return GearUtils.gear_main_attribute_list[position]
-        return []
-
-    @staticmethod
-    def get_main_attribute_by_index(position: int, index: int):
-        """根据位置和索引获取主属性"""
-        main_attrs = GearUtils.get_main_attributes_by_position(position)
-        if 0 <= index < len(main_attrs):
-            return main_attrs[index]
-        return None
+        return (sub_attr_name == recommended_sub.name and
+                sub_attr_value_type == recommended_sub.value_type)

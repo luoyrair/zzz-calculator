@@ -154,10 +154,3 @@ class CalculationUtils:
             result[passive_data["target"]] = int(result[passive_data["target"]])
 
         return result
-
-    @staticmethod
-    def calculate_enhanced_value(base_value: float, growth: float, level: int) -> float:
-        """计算强化后的属性值"""
-        if growth < 0:  # 没有成长值
-            return base_value
-        return base_value + (level * growth)
