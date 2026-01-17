@@ -6,6 +6,7 @@ from typing import Any
 
 from src.config.constants import ColorConstants
 from src.config.settings import settings_manager
+from src.utils.logger import get_logger
 
 
 class FormatUtils:
@@ -19,7 +20,7 @@ class FormatUtils:
         settings = settings_manager.get_settings()
         basic_content_mode = settings.display.basic_attributes_display_mode
 
-        print(f"[DEBUG LeftPanel] 基础属性内容模式: {basic_content_mode} (1=角色基础属性, 2=所有属性)")
+        logger.debug(f"基础属性内容模式: {basic_content_mode} (1=角色基础属性, 2=所有属性)")
 
         # 1. 基础属性（所有角色都有的）
         basic_attrs = [
@@ -74,9 +75,8 @@ class FormatUtils:
             for name, value in basic_attrs
         ]
 
-        print(f"[DEBUG LeftPanel] 生成占位数据: {len(basic_attrs)} 个属性")
-        print(
-            f"[DEBUG LeftPanel] 角色类型: {character.weapon_type if character else '无'}, 元素类型: {character.element_type if character else '无'}")
+        logger.debug(f"生成占位数据: {len(basic_attrs)} 个属性")
+        logger.debug(f"角色类型: {character.weapon_type if character else '无'}, 元素类型: {character.element_type if character else '无'}")
 
         return basic_data, character_data
 
@@ -174,3 +174,5 @@ class FormatUtils:
                 return True
 
         return False
+
+logger = get_logger("FormatUtils")

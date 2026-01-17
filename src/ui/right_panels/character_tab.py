@@ -395,7 +395,7 @@ class CharacterTab(QWidget):
             # 获取角色对象
             character = self.app_core.data_manager.get_character(character_id)
             if not character:
-                print(f"[ERROR CharacterTab] 未找到角色: {character_id}")
+                self.logger.error(f"[ERROR CharacterTab] 未找到角色: {character_id}")
                 return
 
             # 设置角色

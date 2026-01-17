@@ -4,6 +4,7 @@
 
 from typing import Tuple, Optional
 from src.config.settings import settings_manager
+from src.utils.logger import get_logger
 
 
 class ConstraintUtils:
@@ -39,7 +40,7 @@ class ConstraintUtils:
             settings = self.settings_manager.get_settings()
             mode = settings.level_constraints.character_level_constraint_mode
 
-        print(f"[DEBUG ConstraintUtils] get_breakthrough_by_character_level: level={level}, mode={mode}")
+        logger.debug(f"get_breakthrough_by_character_level: level={level}, mode={mode}")
 
         if mode == 1:
             # 模式1：默认模式
@@ -133,3 +134,5 @@ class ConstraintUtils:
         elif refinement == 5:
             return 51, 60
         return 1, 60
+
+logger = get_logger("ConstraintUtils")

@@ -177,8 +177,6 @@ class GearTab(QWidget):
         main_attr_name, main_attr_value_type = main_attrs[main_attr_idx]
 
         main_attr = AttributeFactory().gear_main(main_attr_name, main_attr_value_type, level)
-        print(main_attr)
-        print(level)
 
         self.app_core.set_gear_piece(
             position=position,

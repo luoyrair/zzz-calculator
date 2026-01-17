@@ -299,4 +299,4 @@ class ApplicationCore(QObject):
         self.base_attributes_updated.emit({})
         self.character_attributes_updated.emit({})
 
-        print("已清空所有选择")
+        self.logger.info("已清空所有选择")

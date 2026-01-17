@@ -12,65 +12,6 @@ class CalculationUtils:
     """计算工具类"""
 
     @staticmethod
-    def get_cache_key(character, weapon=None, gear_sets=None, gear_pieces=None, include_talent: bool = False) -> str:
-        """生成缓存键 - 包含副属性信息和是否包含天赋属性"""
-        key_parts = []
-
-        if character:
-            key_parts.append(
-                f"character_{character.id}_{character.level}_{character.breakthrough}_{character.core_passive}")
-
-        if weapon:
-            # 在缓存键中包含是否包含天赋属性
-            talent_info = f"talent{weapon.talent}" if include_talent else "no_talent"
-            key_parts.append(f"weapon_{weapon.id}_{weapon.level}_{weapon.refinement}_{talent_info}")
-
-        if gear_sets:
-            set_ids = sorted(gear_sets.keys())
-            key_parts.append(f"sets_{'_'.join(set_ids)}")
-
-        if gear_pieces:
-            for pos in sorted(gear_pieces.keys()):
-                piece = gear_pieces[pos]
-                piece_key = []
-
-                # 主属性
-                if piece.main_attribute:
-                    piece_key.append(f"main_{piece.main_attribute.name}_{piece.main_attribute.base_value}")
-
-                # 副属性
-                if piece.sub_attributes:
-                    for sub_idx in sorted(piece.sub_attributes.keys()):
-                        sub_attr = piece.sub_attributes[sub_idx]
-                        if sub_attr:
-                            piece_key.append(f"sub{sub_idx}_{sub_attr.name}_{sub_attr.base_value}")
-
-                if piece_key:
-                    key_parts.append(f"gear{pos}_{'_'.join(piece_key)}")
-
-        # 在最后添加是否包含天赋属性的标记
-        if weapon:
-            key_parts.append(f"include_talent_{include_talent}")
-
-        return "|".join(key_parts)
-
-    @staticmethod
-    def evict_oldest_cache(cache_dict: Dict):
-        """驱逐最旧的缓存项"""
-        if cache_dict:
-            # 移除第一个条目（近似LRU）
-            oldest_key = next(iter(cache_dict))
-            cache_dict.pop(oldest_key)
-
-    def cache_result(self, cache_key: str, result: Dict[str, float], cache_dict: Dict):
-        """缓存计算结果"""
-        cache_dict[cache_key] = result.copy()
-
-        # 限制缓存大小
-        if len(cache_dict) > 100:
-            self.evict_oldest_cache(cache_dict)
-
-    @staticmethod
     def add_to_dict(target_dict: Dict[str, float], key: str, value: float):
         """将值添加到字典中，如果键已存在则累加"""
         if key in target_dict:
