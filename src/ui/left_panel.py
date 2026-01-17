@@ -147,7 +147,7 @@ class LeftPanel(QWidget):
             display_mode = settings.display.character_attribute_display_mode
 
             # 生成占位数据
-            basic_data, character_data = FormatUtils.generate_placeholder_data(character)
+            basic_data, character_data = self.generate_placeholder_data(character)
 
             if display_mode == 1:
                 # 面板属性：使用 character_data
@@ -268,7 +268,9 @@ class LeftPanel(QWidget):
             return
 
         # 格式化属性数据
-        character_stats = FormatUtils().format_stats_with_recommendation(attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
+        character_stats = FormatUtils().format_stats_with_recommendation(
+            attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR
+        )
         self.logger.debug(f"character_stats: {character_stats}")
 
         # 更新显示
@@ -353,6 +355,73 @@ class LeftPanel(QWidget):
                 stats_data.append((name, display_value, name_color, value_color))
 
         return stats_data
+
+    def generate_placeholder_data(self, character=None):
+        """动态生成占位数据（按需调用）"""
+
+        # 获取显示设置
+        settings = settings_manager.get_settings()
+        basic_content_mode = settings.display.basic_attributes_display_mode
+
+        self.logger.debug(f"基础属性内容模式: {basic_content_mode} (1=角色基础属性, 2=所有属性)")
+
+        # 1. 基础属性（所有角色都有的）
+        basic_attrs = [
+            ("生命值", "0"),
+            ("攻击力", "0"),
+            ("防御力", "0"),
+            ("冲击力", "0"),
+            ("暴击率", "0.0%"),
+            ("暴击伤害", "0.0%"),
+            ("异常掌控", "0"),
+            ("异常精通", "0"),
+        ]
+
+        if basic_content_mode == 2:
+            # 模式2：显示所有属性
+            basic_attrs.extend([
+                ("穿透率", "0.0%"),
+                ("穿透值", "0"),
+                ("能量自动回复", "0.0"),
+                ("物理伤害加成", "0.0%"),
+                ("火属性伤害加成", "0.0%"),
+                ("冰属性伤害加成", "0.0%"),
+                ("电属性伤害加成", "0.0%"),
+                ("以太伤害加成", "0.0%"),
+                ("贯穿力", "0"),
+                ("闪能自动积蓄", "0.0"),
+                ("贯穿伤害加成", "0.0%"),
+            ])
+        elif character and basic_content_mode == 1:
+            # 模式1：显示角色基础属性，根据角色类型添加特定属性
+            if character.weapon_type == "命破":
+                # 命破角色：加上贯穿力、闪能自动积蓄、对应的属性伤害加成
+                basic_attrs.extend([("贯穿力", "0"), ("闪能自动积蓄", "0.0"), ])
+            else:
+                # 非命破角色：加上穿透率、能量自动回复、穿透值、对应的属性伤害加成
+                basic_attrs.extend([("穿透率", "0.0%"), ("能量自动回复", "0.0"), ("穿透值", "0"), ])
+
+            # 添加对应的属性伤害加成
+            basic_attrs.append((f"{character.element_type}伤害加成", "0.0%"))
+        else:
+            # 没有角色或模式1但没有角色时，显示基础属性
+            pass
+
+        # 格式：(name, value, name_color, value_color)
+        basic_data = [
+            (name, value, ColorConstants.BASIC_COLOR, ColorConstants.BASIC_ATTRIBUTE_COLOR)
+            for name, value in basic_attrs
+        ]
+
+        character_data = [
+            (name, value, ColorConstants.BASIC_COLOR, ColorConstants.CHARACTER_ATTRIBUTE_COLOR)
+            for name, value in basic_attrs
+        ]
+
+        self.logger.debug(f"生成占位数据: {len(basic_attrs)} 个属性")
+        self.logger.debug(f"角色类型: {character.weapon_type if character else '无'}, 元素类型: {character.element_type if character else '无'}")
+
+        return basic_data, character_data
 
     def reset_to_placeholder(self):
         """重置为占位数据"""

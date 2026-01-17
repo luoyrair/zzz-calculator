@@ -2,8 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict
 
-from src.core.attribute_factory import AttributeFactory
-from src.utils.attribute_utils import AttributeUtils
+from src.core.attribute_factory import AttrName, AttributeFactory
 from src.utils.data_utils import DataUtils
 from src.utils.logger import get_logger
 
@@ -80,7 +79,18 @@ def parse_talents_data(data: Dict):
     talents_data = JsonTalentsData()
     attrs = []
     talent_name = None
-    attribute_patterns = AttributeUtils.get_weapon_attribute_patterns()
+    attribute_patterns = [
+        {'pattern': r'^生命值上限提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.HP},
+        {'pattern': r'^攻击力提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.ATK},
+        {'pattern': r'^电属性伤害提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.EL_D_B},
+        {'pattern': r'^冰属性伤害提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.IC_D_B},
+        {'pattern': r'^装备者造成的火属性伤害提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.FI_D_B},
+        {'pattern': r'^物理伤害提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.PH_D_B},
+        {'pattern': r'^暴击伤害提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.C_D},
+        {'pattern': r'^暴击率提升(\d+(?:\.\d+)?)%', 'attribute_id': AttrName.C_R},
+        {'pattern': r'^装备者的能量自动回复提升(\d+(?:\.\d+)?)点/秒', 'attribute_id': AttrName.E_R},
+        {'pattern': r'^装备者的\[异常掌控\]提升(\d+(?:\.\d+)?)点', 'attribute_id': AttrName.A_M}
+    ]
 
     for k, v in data.items():
         talent_name = v.get('名称', '')

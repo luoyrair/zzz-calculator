@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QLabel, QFormLayout, QMessageBox
 )
 
+from src.config.constants import ColorConstants
 from src.config.settings import settings_manager
 from src.core.app import ApplicationCore
 from src.ui.widgets.level_selector import LevelSelector, BreakthroughSelector, CorePassiveSelector
@@ -769,7 +770,7 @@ class CharacterTab(QWidget):
 
         # 更新元素类型（带颜色）
         element_type = character.element_type
-        element_color = FormatUtils.get_element_color(element_type)
+        element_color = ColorConstants.ELEMENT_COLORS.get(element_type, "#808080")
         element_html = f"元素类型：<span style='color:{element_color}; font-weight:bold;'>{element_type}</span>"
         self.char_element_label.setText(element_html)
 

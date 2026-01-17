@@ -170,8 +170,15 @@ class AttributeCalculator:
 
             for attr in attrs_to_process:
                 self.logger.debug(f"处理武器属性: {attr.name}={attr.base_value}")
-                weapon_base_attack = CalculationUtils().process_attribute(attr, percentage_bonuses,
-                                                                          flat_bonuses, weapon_base_attack)
+                if attr.merge_type == 2:
+                    # 百分比加成
+                    CalculationUtils.add_to_dict(percentage_bonuses, attr.name, attr.base_value)
+                elif attr.name == '攻击力' and attr.value_type == 1:
+                    # 武器基础攻击力（特殊处理）
+                    weapon_base_attack = attr.base_value
+                else:
+                    # 其他固定值加成
+                    CalculationUtils.add_to_dict(flat_bonuses, attr.name, attr.base_value)
 
         self.logger.debug(f"武器基础攻击: {weapon_base_attack}")
         self.logger.debug(f"百分比加成: {percentage_bonuses}")

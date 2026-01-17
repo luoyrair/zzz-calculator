@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QComboBox
 
-from src.utils.format_utils import FormatUtils
+from src.config.constants import ColorConstants
 
 
 class CharacterSelector(QComboBox):
@@ -35,12 +35,10 @@ class CharacterSelector(QComboBox):
 
             # 添加项目
             for char in characters:
-                display_text = FormatUtils.format_character_info(
-                    char.name, char.weapon_type, char.element_type
-                )
+                display_text = f"{char.name} | {char.weapon_type} | {char.element_type}"
 
                 # 根据稀有度设置颜色
-                rarity_color = FormatUtils.get_rarity_color(char.rarity + 1)
+                rarity_color = ColorConstants.RARITY_COLORS.get(char.rarity + 1, "#808080")
 
                 self.addItem(display_text, char.id)
                 index = self.count() - 1
@@ -98,17 +96,18 @@ class WeaponSelector(QComboBox):
             for weapon in weapons:
                 # 构建显示文本
                 if weapon.actual_advanced_attribute:
-                    display_text = FormatUtils.format_weapon_info(
-                        weapon.name,
-                        weapon.weapon_type,
-                        weapon.actual_advanced_attribute.name,
-                        weapon.actual_advanced_attribute.base_value
-                    )
+                    main_attr_name = weapon.actual_advanced_attribute.name
+                    main_attr_value = weapon.actual_advanced_attribute.base_value
+
+                    if isinstance(main_attr_value, float) and 0 < main_attr_value < 1:
+                        main_attr_value = f"{main_attr_value * 100:.1f}%"
+
+                    return f"{weapon.name} | {weapon.weapon_type} | {main_attr_name} {main_attr_value}"
                 else:
                     display_text = f"{weapon.name} | {weapon.weapon_type}"
 
                 # 根据稀有度设置颜色
-                rarity_color = FormatUtils.get_rarity_color(weapon.rarity + 1)
+                rarity_color = ColorConstants.RARITY_COLORS.get(weapon.rarity + 1, "#808080")
 
                 self.addItem(display_text, weapon.id)
                 index = self.count() - 1

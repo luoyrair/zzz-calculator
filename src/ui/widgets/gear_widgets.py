@@ -314,7 +314,13 @@ class GearSetConfigWidget(QWidget):
                     continue
 
                 is_recommended = self._is_set_recommended(combo, set_id)
-                GearUtils.add_set_item_to_combo(combo, set_id, set_name, is_recommended)
+                if is_recommended:
+                    display_text = f"{set_name}"
+                    combo.addItem(display_text, set_id)
+                    index = combo.count() - 1
+                    combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
+                else:
+                    combo.addItem(set_name, set_id)
 
             # 恢复当前选择
             GearUtils.restore_combo_selection(combo, current_id)
@@ -696,7 +702,13 @@ class GearPieceEditor(QFrame):
         self._send_sub_attributes_changed_signal(selected_sub_id, sub_index)
 
         if index <= 0 or selected_sub_id == -1:
-            GearUtils.handle_sub_attribute_deselected(combo, enhance_spinbox, value_label)
+            enhance_spinbox.blockSignals(True)
+            enhance_spinbox.setValue(0)
+            enhance_spinbox.setEnabled(False)
+            enhance_spinbox.blockSignals(False)
+
+            value_label.setText("")
+            combo.setStyleSheet("")
         else:
             self._handle_sub_attribute_selected(enhance_spinbox, sub_index)
 
@@ -892,7 +904,10 @@ class GearPieceEditor(QFrame):
                     continue
 
             # 恢复选择
-            GearUtils.restore_sub_attr_selection(combo, current_id)
+            if current_id in [combo.itemData(i) for i in range(combo.count())]:
+                combo.setCurrentIndex(combo.findData(current_id))
+            else:
+                combo.setCurrentIndex(0)
 
         finally:
             combo.blockSignals(False)

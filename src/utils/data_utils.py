@@ -9,17 +9,6 @@ class DataUtils:
     """数据工具类"""
 
     @staticmethod
-    def deep_merge_dicts(dict1: Dict, dict2: Dict) -> Dict:
-        """深度合并两个字典"""
-        result = dict1.copy()
-        for key, value in dict2.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                result[key] = DataUtils.deep_merge_dicts(result[key], value)
-            else:
-                result[key] = value
-        return result
-
-    @staticmethod
     def sanitize_json_data(data: Dict[str, Any]) -> Dict[str, Any]:
         """清洗JSON数据"""
         # 移除空值

@@ -3,9 +3,6 @@
 """
 from typing import List, Tuple
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
-
 
 class GearUtils:
     """驱动盘工具类"""
@@ -59,40 +56,9 @@ class GearUtils:
     # ========== UI相关工具方法 ==========
 
     @staticmethod
-    def add_set_item_to_combo(combo, set_id, set_name, is_recommended=False):
-        """添加套装项到组合框"""
-        if is_recommended:
-            display_text = f"{set_name}"
-            combo.addItem(display_text, set_id)
-            index = combo.count() - 1
-            combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
-        else:
-            combo.addItem(set_name, set_id)
-
-
-    @staticmethod
     def restore_combo_selection(combo, current_id):
         """恢复组合框的选择"""
         if current_id and current_id in [combo.itemData(i) for i in range(combo.count())]:
-            combo.setCurrentIndex(combo.findData(current_id))
-        else:
-            combo.setCurrentIndex(0)
-
-    @staticmethod
-    def handle_sub_attribute_deselected(combo, enhance_spinbox, value_label):
-        """处理副属性被取消选择"""
-        enhance_spinbox.blockSignals(True)
-        enhance_spinbox.setValue(0)
-        enhance_spinbox.setEnabled(False)
-        enhance_spinbox.blockSignals(False)
-
-        value_label.setText("")
-        combo.setStyleSheet("")
-
-    @staticmethod
-    def restore_sub_attr_selection(combo, current_id):
-        """恢复副属性选择"""
-        if current_id in [combo.itemData(i) for i in range(combo.count())]:
             combo.setCurrentIndex(combo.findData(current_id))
         else:
             combo.setCurrentIndex(0)

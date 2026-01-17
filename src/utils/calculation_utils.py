@@ -19,20 +19,6 @@ class CalculationUtils:
         else:
             target_dict[key] = value
 
-    def process_attribute(self, attr, percentage_bonuses, flat_bonuses, weapon_base_attack):
-        """处理单个属性，将其分类到相应的加成集合中"""
-        if attr.merge_type == 2:
-            # 百分比加成
-            self.add_to_dict(percentage_bonuses, attr.name, attr.base_value)
-        elif attr.name == '攻击力' and attr.value_type == 1:
-            # 武器基础攻击力（特殊处理）
-            weapon_base_attack = attr.base_value
-        else:
-            # 其他固定值加成
-            self.add_to_dict(flat_bonuses, attr.name, attr.base_value)
-
-        return weapon_base_attack
-
     @staticmethod
     def add_attribute_to_dicts(attr: Attribute,
                                percentage_bonuses: Dict[str, float],
