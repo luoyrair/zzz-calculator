@@ -69,18 +69,6 @@ class GearUtils:
         else:
             combo.addItem(set_name, set_id)
 
-    @staticmethod
-    def add_sub_attr_item(combo, sub_attr_name, sub_attr_value_type, idx, is_recommended):
-        """添加副属性项到组合框"""
-        name = sub_attr_name + "%" if sub_attr_value_type == 2 else sub_attr_name
-
-        if is_recommended:
-            display_text = f"{name}"
-            combo.addItem(display_text, idx)
-            index = combo.count() - 1
-            combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
-        else:
-            combo.addItem(name, idx)
 
     @staticmethod
     def restore_combo_selection(combo, current_id):

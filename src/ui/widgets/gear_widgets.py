@@ -204,13 +204,11 @@ class GearSetConfigWidget(QWidget):
                         elif not is_four and hasattr(gear_set_data, 'Slot2'):
                             is_recommended = str(set_id) == str(gear_set_data.Slot2)
 
+                combo.addItem(set_name, set_id)
+
                 if is_recommended:
-                    display_text = f"{set_name}"
-                    combo.addItem(display_text, set_id)
                     index = combo.count() - 1
                     combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
-                else:
-                    combo.addItem(set_name, set_id)
 
             # 恢复选择
             GearUtils.restore_combo_selection(combo, current_id)
@@ -774,13 +772,10 @@ class GearPieceEditor(QFrame):
 
     def _add_main_attr_item(self, main_attr_name, idx, is_recommended):
         """添加主属性项到组合框"""
+        self.main_combo.addItem(main_attr_name, idx)
         if is_recommended:
-            display_text = f"{main_attr_name}"
-            self.main_combo.addItem(display_text, idx)
             index = self.main_combo.count() - 1
             self.main_combo.setItemData(index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
-        else:
-            self.main_combo.addItem(main_attr_name, idx)
 
     def _restore_main_attr_selection(self, current_data):
         """恢复主属性选择"""
@@ -881,8 +876,18 @@ class GearPieceEditor(QFrame):
             for sub_attr_name, sub_attr_value_type in sub_attrs:
                 try:
                     idx = GearUtils.get_sub_attributes().index((sub_attr_name, sub_attr_value_type))
-                    is_recommended = GearUtils.is_sub_attr_recommended(sub_attr_name, sub_attr_value_type, recommended_sub)
-                    GearUtils.add_sub_attr_item(combo, sub_attr_name, sub_attr_value_type, idx, is_recommended)
+
+                    # 添加项目
+                    name = sub_attr_name + "%" if sub_attr_value_type == 2 else sub_attr_name
+                    combo.addItem(name, idx)
+
+                    # 检查是否为推荐属性并设置颜色
+                    is_recommended = GearUtils.is_sub_attr_recommended(sub_attr_name, sub_attr_value_type,
+                                                                       recommended_sub)
+                    if is_recommended:
+                        combo_index = combo.count() - 1
+                        combo.setItemData(combo_index, QColor("#FF4500"), Qt.ItemDataRole.ForegroundRole)
+
                 except ValueError:
                     continue
 
