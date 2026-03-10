@@ -30,16 +30,8 @@ class ApplicationCore(QObject):
         self.state = StateManager.instance()
 
         # 加载数据
-        self._load_data()
+        self.data_manager.initialize()
         self.logger.info("ApplicationCore 初始化完成")
-
-    def _load_data(self):
-        """加载数据"""
-        self.logger.info("开始加载数据")
-        if not self.data_manager.load_all():
-            self.logger.error("数据加载失败")
-        else:
-            self.logger.info("数据加载成功")
 
     def set_character(self, character_id: Union[int, None], level: int = 60,
                       breakthrough: int = 6, core_passive: int = 7):
@@ -90,6 +82,19 @@ class ApplicationCore(QObject):
 
         if weapon_id is None or weapon_id == -1:
             self.logger.info("清空音擎选择")
+            # 更新状态管理器，设置为None
+            self.state.update_weapon(None)
+
+            # 如果当前有角色，更新角色的武器ID为None
+            current_state = self.state.get_state()
+            if current_state.current_character:
+                if current_state.current_character.weapon_id is not None:
+                    self.logger.debug(f"更新角色武器ID: {current_state.current_character.weapon_id} -> None")
+                    current_state.current_character.weapon_id = None
+
+            # 重新计算属性
+            self.logger.debug("开始计算属性")
+            self._calculate_and_update_all()
             return
 
         weapon = self.data_manager.get_weapon(weapon_id)

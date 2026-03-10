@@ -157,7 +157,10 @@ class AttributeCalculator:
         weapon_base_attack = 0
         if weapon:
             self.logger.debug(f"处理武器属性: {weapon.name}")
-            weapon.set_actual_attributes(self.data_manager)
+            weapon.set_actual_attributes(
+                self.data_manager.loader.data.weapon_growth["levels"],
+                self.data_manager.loader.data.weapon_growth["stars"]
+            )
 
             # 获取武器属性（基础攻击力和高级属性）
             weapon_attrs = weapon.get_attributes()

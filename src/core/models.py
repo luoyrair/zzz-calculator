@@ -56,7 +56,7 @@ class Character:
 
     # 存储原始属性数据
     base_attributes: Dict[str, Attribute] = field(default_factory=dict)
-    breakthrough_attributes: List = field(default_factory=list)
+    promotions_attributes: List = field(default_factory=list)
     core_passive_attributes: List = field(default_factory=list)
     passive_data: Any = None
     recommend: Any = None
@@ -77,9 +77,9 @@ class Character:
             result[attr_name] = attr.get_value(self.level)
 
         # 2. 突破加成
-        if 0 < self.breakthrough - 1 <= len(self.breakthrough_attributes):
-            breakthrough_attrs = self.breakthrough_attributes[self.breakthrough - 1].attribute
-            for attr_name, attr in breakthrough_attrs.items():
+        if 0 < self.breakthrough - 1 <= len(self.promotions_attributes):
+            promotions_attrs = self.promotions_attributes[self.breakthrough - 1]["attribute"]
+            for attr_name, attr in promotions_attrs.items():
                 if attr_name in result:
                     result[attr_name] += attr.base_value
                 else:
@@ -87,7 +87,7 @@ class Character:
 
         # 3. 核心被动加成
         if 0 < self.core_passive - 2 <= len(self.core_passive_attributes):
-            core_attrs = self.core_passive_attributes[self.core_passive - 2].attrs
+            core_attrs = self.core_passive_attributes[self.core_passive - 2]["attrs"]
             for attr_name, attr in core_attrs.items():
                 if attr_name in result:
                     if attr.merge_type == 2:
@@ -101,10 +101,10 @@ class Character:
 
         if self.core_passive - 1 >= 0:
             if self.weapon_type == "命破":
-                result[self.passive_data.target] = 0
-                for attr_name, ratio in self.passive_data.mapping[self.core_passive - 1].items():
-                    result[self.passive_data.target] += result[attr_name] * ratio
-                result[self.passive_data.target] = int(result[self.passive_data.target])
+                result[self.passive_data["target"]] = 0
+                for (attr_name, ratio) in self.passive_data["mapping"]:
+                    result[self.passive_data["target"]] += result[attr_name] * ratio
+                result[self.passive_data["target"]] = int(result[self.passive_data["target"]])
 
         result["生命值"] = int(result["生命值"])
         result["攻击力"] = int(result["攻击力"])
@@ -114,10 +114,10 @@ class Character:
 
     def get_passive_data(self):
         data = {
-            "target": self.passive_data.target,
+            "target": self.passive_data["target"],
             "data": {}
         }
-        for attr_name, ratio in self.passive_data.mapping[self.core_passive - 1].items():
+        for (attr_name, ratio) in self.passive_data["mapping"]:
             data["data"][attr_name] = ratio
 
         return data
@@ -134,7 +134,7 @@ class Character:
             'breakthrough': self.breakthrough,
             'core_passive': self.core_passive,
             'base_attributes': self.base_attributes,
-            'breakthrough_attributes': self.breakthrough_attributes,
+            'promotions_attributes': self.promotions_attributes,
             'core_passive_attributes': self.core_passive_attributes,
             'weapon_id': self.weapon_id,
             'gear_set_ids': self.gear_set_ids,
@@ -180,65 +180,59 @@ class Weapon:
 
         return attributes
 
-    def set_actual_attributes(self, data_manager):
+    def set_actual_attributes(self, levels, refinement):
         """获取武器实际属性值（包含等级和精炼加成）"""
         if not self.data_calculation_flag:
             # 1. 基础攻击力 = 基础值 + 等级加成 + 精炼加成
             self.actual_base_attack.source = self.base_attack.source
-            self.actual_base_attack.base_value = self._calculate_actual_base_attack(data_manager)
+            self.actual_base_attack.base_value = self._calculate_actual_base_attack(levels, refinement)
 
             # 2. 高级属性 = 基础值 + 精炼加成
             self.actual_advanced_attribute.source = self.advanced_attribute.source
             self.actual_advanced_attribute.name = self.advanced_attribute.name
-            self.actual_advanced_attribute.base_value = self._calculate_actual_advanced_attribute(data_manager)
+            self.actual_advanced_attribute.base_value = self._calculate_actual_advanced_attribute(refinement)
             self.actual_advanced_attribute.value_type = self.advanced_attribute.value_type
             self.actual_advanced_attribute.merge_type = self.advanced_attribute.merge_type
 
             self.data_calculation_flag = True
 
-    def _calculate_actual_base_attack(self, data_manager) -> float:
+    def _calculate_actual_base_attack(self, levels, refinement) -> float:
         """计算实际基础攻击力"""
         # 基础值
         base_value = self.base_attack.base_value
 
         # 等级加成
-        level_bonus = self._get_level_bonus(data_manager)
+        level_bonus = self._get_level_bonus(levels)
 
         # 精炼加成（基础攻击力的精炼加成）
-        refinement_bonus = self._get_refinement_bonus(data_manager)
+        refinement_bonus = self._get_refinement_bonus(refinement)
 
         return int(base_value * (1 + level_bonus + refinement_bonus))
 
-    def _calculate_actual_advanced_attribute(self, data_manager) -> float:
+    def _calculate_actual_advanced_attribute(self, refinement) -> float:
         """计算实际高级属性值"""
         # 基础值
         base_value = self.advanced_attribute.base_value
 
         # 精炼加成（高级属性的精炼加成）
-        refinement_bonus = self._get_advanced_refinement_bonus(data_manager)
+        refinement_bonus = self._get_advanced_refinement_bonus(refinement)
 
         return base_value * (1 + refinement_bonus)
 
-    def _get_level_bonus(self, data_manager) -> float:
+    def _get_level_bonus(self, levels) -> float:
         """获取等级加成值"""
 
-        growth_data = data_manager.weapon_growth_data[str(self.rarity)]
+        return levels[str(self.level)].get("base_stat_growth", 0) / 10000.0
 
-        return growth_data[str(self.level)].get("base_attack", 0) / 10000.0
-
-    def _get_refinement_bonus(self, data_manager) -> float:
+    def _get_refinement_bonus(self, refinement) -> float:
         """获取精炼加成（基础攻击力）"""
 
-        stars_data = data_manager.weapon_growth_data["stars"]
+        return refinement[str(self.refinement)].get("base_stat_growth", 0) / 10000.0
 
-        return stars_data[str(self.refinement)].get("base_attack", 0) / 10000.0
-
-    def _get_advanced_refinement_bonus(self, data_manager) -> float:
+    def _get_advanced_refinement_bonus(self, refinement) -> float:
         """获取高级属性的精炼加成"""
 
-        stars_data = data_manager.weapon_growth_data["stars"]
-
-        return stars_data[str(self.refinement)].get("advanced_attribute", 0) / 10000.0
+        return refinement[str(self.refinement)].get("advanced_stat_growth", 0) / 10000.0
 
 
 @dataclass

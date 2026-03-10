@@ -379,7 +379,7 @@ class CharacterTab(QWidget):
 
     def _on_character_changed(self, index):
         """处理角色选择变化"""
-        self.logger.debug("_on_character_changed 调用: index={index}")
+        self.logger.debug(f"_on_character_changed 调用: index={index}")
 
         if index <= 0:
             # 选择了占位符项，重置状态
@@ -390,13 +390,13 @@ class CharacterTab(QWidget):
             return
 
         character_id = self.character_combo.get_selected_data()
-        self.logger.debug("选择的角色ID: {character_id}")
+        self.logger.debug(f"选择的角色ID: {character_id}")
 
         if character_id:
             # 获取角色对象
             character = self.app_core.data_manager.get_character(character_id)
             if not character:
-                self.logger.error(f"[ERROR CharacterTab] 未找到角色: {character_id}")
+                self.logger.error(f"[ERROR CharacterTab] 未找到角色: {character_id} type: {type(character_id)}")
                 return
 
             # 设置角色
@@ -419,12 +419,12 @@ class CharacterTab(QWidget):
         settings = self.settings_manager.get_settings()
         auto_select_enabled = settings.auto_select.auto_select_weapon
 
-        self.logger.debug("自动选择音擎设置: {auto_select_enabled}")
+        self.logger.debug(f"自动选择音擎设置: {auto_select_enabled}")
 
         if auto_select_enabled:
             # 如果启用了自动选择，尝试选择专属音擎
             current_weapon_id = self.weapon_combo.get_selected_data()
-            self.logger.debug("当前武器ID: {current_weapon_id}")
+            self.logger.debug(f"当前武器ID: {current_weapon_id}")
 
             if not current_weapon_id or current_weapon_id == -1:
                 self.logger.debug("当前没有选择武器，执行自动选择")
@@ -438,7 +438,7 @@ class CharacterTab(QWidget):
         """检查是否应该自动选择专属音擎"""
         settings = self.settings_manager.get_settings()
         auto_select = settings.auto_select.auto_select_weapon
-        self.logger.debug("_should_auto_select_weapon: {auto_select}")
+        self.logger.debug(f"_should_auto_select_weapon: {auto_select}")
         return auto_select
 
     def _auto_select_character_weapon(self, character):
@@ -459,7 +459,7 @@ class CharacterTab(QWidget):
                 found = False
                 for i in range(self.weapon_combo.count()):
                     if self.weapon_combo.itemData(i) == weapon_id:
-                        self.logger.debug("在组合框中找到音擎，索引: {i}")
+                        self.logger.debug(f"在组合框中找到音擎，索引: {i}")
                         self.weapon_combo.setCurrentIndex(i)
                         found = True
                         break
@@ -471,11 +471,13 @@ class CharacterTab(QWidget):
                     self.logger.debug("音擎在列表中但未找到")
                     self._show_weapon_not_found_warning(weapon_id)
             else:
-                self.logger.debug("未找到音擎: {weapon_id}")
+                self.logger.debug(f"未找到音擎: {weapon_id}")
                 self._show_weapon_not_found_warning(weapon_id)
 
         except Exception as e:
             self.logger.error(f"自动选择音擎失败: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _show_weapon_not_found_warning(self, weapon_id: int):
         """显示未找到音擎的警告"""

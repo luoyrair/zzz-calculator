@@ -35,6 +35,8 @@ class MainWindow(QMainWindow):
             self.logger.info("✓ 主窗口初始化完成")
         except Exception as e:
             self.logger.error(f"✗ 主窗口初始化失败: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _init_ui(self):
         """初始化UI"""

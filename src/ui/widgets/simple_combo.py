@@ -102,7 +102,7 @@ class WeaponSelector(QComboBox):
                     if isinstance(main_attr_value, float) and 0 < main_attr_value < 1:
                         main_attr_value = f"{main_attr_value * 100:.1f}%"
 
-                    return f"{weapon.name} | {weapon.weapon_type} | {main_attr_name} {main_attr_value}"
+                    display_text = f"{weapon.name} | {weapon.weapon_type} | {main_attr_name} {main_attr_value}"
                 else:
                     display_text = f"{weapon.name} | {weapon.weapon_type}"
 

@@ -2,6 +2,16 @@
 import sys
 from pathlib import Path
 
+import traceback
+def exception_hook(exctype, value, tb):
+    print("=" * 60)
+    print("程序发生未捕获的异常:")
+    traceback.print_exception(exctype, value, tb)
+    print("=" * 60)
+    sys.__excepthook__(exctype, value, tb)
+
+sys.excepthook = exception_hook
+
 # Windows 平台：隐藏控制台窗口
 if sys.platform == "win32":
     import ctypes
