@@ -42,7 +42,7 @@ class PathConstants:
     def get_data_dir():
         """获取数据目录"""
         base_dir = AppConstants.get_base_dir()
-        return base_dir / 'data'
+        return base_dir / 'assets'
 
     @staticmethod
     def get_logs_dir():
@@ -50,36 +50,19 @@ class PathConstants:
         base_dir = AppConstants.get_base_dir()
         return base_dir / 'logs'
 
-    def get_config_dir(self):
+    @staticmethod
+    def get_config_dir():
         """获取配置目录"""
-        return self.get_data_dir() / 'config'
+        base_dir = AppConstants.get_base_dir()
+        return base_dir / 'config'
 
     def get_settings_dir(self):
         """获取配置目录"""
-        return self.get_data_dir() / 'app'
+        return self.get_config_dir() / 'app'
 
     # 子目录
-    CHARACTERS_DIR = "characters"
-    WEAPONS_DIR = "weapons"
-    EQUIPMENT_DIR = "equipment"
+
     PRESETS_DIR = "presets"
-
-    GROWTH_DIR = "growth"
-
-    # 文件路径
-    CHARACTER_IDS_FILE = "character_ids.json"
-    WEAPON_IDS_FILE = "weapon_ids.json"
-    EQUIPMENT_IDS_FILE = "equipment_ids.json"
-    CHARACTER_MAPPING_FILE = "character_id_name_mapping.json"
-    WEAPON_MAPPING_FILE = "weapon_id_name_mapping.json"
-    EQUIPMENT_FILE = "equipment.json"
-    FAILED_DOWNLOADS_FILE = "failed_downloads.json"
-
-    @staticmethod
-    def get_full_path(relative_path: str) -> Path:
-        """获取完整路径"""
-        data_dir = PathConstants.get_data_dir()
-        return data_dir / relative_path
 
 
 class Environment(Enum):

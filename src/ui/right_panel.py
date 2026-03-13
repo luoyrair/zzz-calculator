@@ -16,8 +16,7 @@ class RightPanel(QWidget):
         self.app_core = app_core
 
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         # 跟踪角色是否已选择
         self.character_selected = False
@@ -47,7 +46,7 @@ class RightPanel(QWidget):
     def _connect_signals(self):
         """连接信号"""
         # 监听角色变化，启用驱动盘选项卡
-        self.state.character_changed.connect(self._on_character_changed)
+        self.app_core.character_changed.connect(self._on_character_changed)
 
     def _on_character_changed(self, character):
         """处理角色变化 - 启用驱动盘选项卡"""

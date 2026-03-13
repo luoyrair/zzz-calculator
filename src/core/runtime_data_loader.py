@@ -7,6 +7,7 @@ from typing import Dict, Optional, Any
 from src.config.constants import PathConstants
 from src.core.models import Character, Weapon, GearSet
 from src.utils.logger import get_logger
+from src.core.weapon_factory import weapon_factory
 
 logger = get_logger("runtime_data_loader")
 
@@ -17,7 +18,6 @@ class RuntimeData:
     characters: Dict[int, Any]  # 角色解析数据
     weapons: Dict[int, Any]  # 武器解析数据
     gear_sets: Dict[str, Any]  # 驱动盘套装数据
-    weapon_growth: Dict[str, Any]  # 武器成长数据
 
 
 class RuntimeDataLoader:
@@ -28,9 +28,9 @@ class RuntimeDataLoader:
         self.data_dir = PathConstants.get_data_dir()
 
         self.characters: Dict[int, Character] = {}
-        self.weapons: Dict[int, Weapon] = {}
-        self.weapon_growth_data: Dict[str, Weapon] = {}
         self.gear_sets: Dict[str, GearSet] = {}
+
+        self.weapon_factory = weapon_factory
 
         self.data = None
         self._loaded = False
@@ -68,26 +68,24 @@ class RuntimeDataLoader:
             # 加载武器成长数据
             weapon_growth = self._load_pickle("weapon_growth.pkl", required=False)
 
-            # 加载武器数据
-            weapons = self._load_pickle("weapons.pkl")
-            if weapons is None:
+            # 初始化武器工厂（加载成长数据）
+            if not self.weapon_factory.initialize(weapon_growth["levels"], weapon_growth["stars"]):
+                logger.error("初始化武器工厂失败")
                 return False
 
-            for k, v in weapons.items():
-                weapon = Weapon(
-                    id=int(v['weapon_id']),
-                    name=v['name'],
-                    rarity=v['rarity'],
-                    weapon_type=v['weapon_type'],
-                    base_attack=v['attrs'][0],
-                    advanced_attribute=v['attrs'][1],
-                    talent_attributes=v['talents']['attrs']
-                )
-                weapon.set_actual_attributes(
-                    weapon_growth["levels"],
-                    weapon_growth["stars"]
-                )
-                self.weapons[int(k)] = weapon
+            # 加载武器数据
+            weapons_data = self._load_pickle("weapons.pkl")
+            if weapons_data is None:
+                return False
+
+            # 使用工厂创建武器实例
+            weapons = []
+            for k, v in weapons_data.items():
+                weapon = self.weapon_factory.create_weapon(v)
+                weapons.append(weapon)
+                self.weapon_factory.cache_weapon(weapon)
+
+            logger.info(f"武器数据加载成功: {len(weapons)} 个")
 
             # 加载驱动盘套装数据
             gear_sets = self._load_pickle("gear_sets.pkl")
@@ -104,9 +102,8 @@ class RuntimeDataLoader:
 
             self.data = RuntimeData(
                 characters=self.characters,
-                weapons=self.weapons,
-                gear_sets=self.gear_sets,
-                weapon_growth=weapon_growth or {}
+                weapons=self.weapon_factory.get_all_cached(),
+                gear_sets=self.gear_sets
             )
 
             self._loaded = True
@@ -148,9 +145,9 @@ class RuntimeDataLoader:
         """获取角色解析数据"""
         return self.data.characters.get(character_id)
 
-    def get_weapon_data(self, weapon_id: int) -> Optional[Any]:
-        """获取武器解析数据"""
-        return self.data.weapons.get(weapon_id)
+    def get_weapon_data(self, weapon_id: int) -> Optional[Weapon]:
+        """获取武器数据（通过工厂）"""
+        return self.weapon_factory.get_weapon(weapon_id)
 
     def get_gear_set_data(self, gear_set_id: str) -> Optional[Any]:
         """获取驱动盘套装数据"""

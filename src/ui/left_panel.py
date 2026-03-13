@@ -71,8 +71,7 @@ class LeftPanel(QWidget):
         self.app_core = app_core
 
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         self._init_ui()
         self._connect_signals()
@@ -128,8 +127,8 @@ class LeftPanel(QWidget):
         self.app_core.character_attributes_updated.connect(self._on_character_attributes_updated)
 
         # 状态管理器信号
-        self.state.character_changed.connect(self._on_state_character_changed)
-        self.state.character_cleared.connect(self.on_character_cleared)
+        self.app_core.character_changed.connect(self._on_state_character_changed)
+        self.app_core.character_cleared.connect(self.on_character_cleared)
 
     def _on_state_character_changed(self, character):
         """处理状态管理器的角色变化信号"""

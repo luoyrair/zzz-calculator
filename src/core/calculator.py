@@ -9,10 +9,9 @@ from .models import Character, Weapon, GearSet, GearPiece
 class AttributeCalculator:
     """简化版属性计算器"""
 
-    def __init__(self, data_manager):
+    def __init__(self):
         self.logger = get_logger("core.calculator")
         self.logger.info("AttributeCalculator 初始化开始")
-        self.data_manager = data_manager
 
         self.logger.info("AttributeCalculator 初始化完成")
 
@@ -156,31 +155,21 @@ class AttributeCalculator:
         # 3. 处理武器属性
         weapon_base_attack = 0
         if weapon:
-            self.logger.debug(f"处理武器属性: {weapon.name}")
-            weapon.set_actual_attributes(
-                self.data_manager.loader.data.weapon_growth["levels"],
-                self.data_manager.loader.data.weapon_growth["stars"]
-            )
-
-            # 获取武器属性（基础攻击力和高级属性）
+            # 武器内部会自己计算实际属性（使用享元）
             weapon_attrs = weapon.get_attributes()
 
             # 根据是否包含天赋决定要处理的属性数量
             if include_talent:
-                attrs_to_process = weapon_attrs  # 包含所有属性（包括天赋）
+                attrs_to_process = weapon_attrs
             else:
-                attrs_to_process = weapon_attrs[:2]  # 只包含基础攻击力和高级属性，不包含天赋
+                attrs_to_process = weapon_attrs[:2] if len(weapon_attrs) > 2 else weapon_attrs
 
             for attr in attrs_to_process:
-                self.logger.debug(f"处理武器属性: {attr.name}={attr.base_value}")
                 if attr.merge_type == 2:
-                    # 百分比加成
                     CalculationUtils.add_to_dict(percentage_bonuses, attr.name, attr.base_value)
-                elif attr.name == '攻击力' and attr.value_type == 1:
-                    # 武器基础攻击力（特殊处理）
+                elif attr.name == '攻击力' and attr.source == 'weapon_base':
                     weapon_base_attack = attr.base_value
                 else:
-                    # 其他固定值加成
                     CalculationUtils.add_to_dict(flat_bonuses, attr.name, attr.base_value)
 
         self.logger.debug(f"武器基础攻击: {weapon_base_attack}")

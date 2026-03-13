@@ -161,78 +161,105 @@ class Weapon:
         self.actual_base_attack = Attribute(source="", name="攻击力", base_value=0, value_type=1, merge_type=1)
         self.actual_advanced_attribute = Attribute(source="", name="None", base_value=0, value_type=-1, merge_type=-1)
 
+        # 导入享元（延迟导入避免循环依赖）
+        from src.core.weapon_growth import weapon_growth
+        self._growth = weapon_growth
+
+    def _ensure_growth_loaded(self):
+        """确保成长数据已加载"""
+        if not self._growth.is_loaded():
+            raise RuntimeError(
+                f"武器成长数据未加载，无法计算武器 {self.name} 的实际属性"
+            )
+
+    def _calculate_actual_attributes(self):
+        """计算实际属性值（内部方法）"""
+        self._ensure_growth_loaded()
+
+        # 1. 计算实际基础攻击力
+        base_value = self.base_attack.base_value
+        level_growth = self._growth.get_level_growth(self.level)
+        refinement_growth = self._growth.get_base_stat_growth(self.refinement)
+
+        actual_base = base_value * (1 + level_growth + refinement_growth)
+
+        self.actual_base_attack = Attribute(
+            source=self.base_attack.source,
+            name=self.base_attack.name,
+            base_value=int(actual_base),  # 游戏里是整数
+            value_type=self.base_attack.value_type,
+            merge_type=self.base_attack.merge_type
+        )
+
+        # 2. 计算实际高级属性
+        base_adv = self.advanced_attribute.base_value
+        adv_growth = self._growth.get_advanced_stat_growth(self.refinement)
+
+        actual_adv = base_adv * (1 + adv_growth)
+
+        self.actual_advanced_attribute = Attribute(
+            source=self.advanced_attribute.source,
+            name=self.advanced_attribute.name,
+            base_value=actual_adv,
+            value_type=self.advanced_attribute.value_type,
+            merge_type=self.advanced_attribute.merge_type
+        )
+
+        self.data_calculation_flag = True
+
+    def ensure_attributes_calculated(self):
+        """确保实际属性已计算"""
+        if not self.data_calculation_flag:
+            self._calculate_actual_attributes()
+
     def get_attributes(self) -> List[Attribute]:
-        """获取武器所有属性"""
+        """
+        获取武器所有属性
+        确保返回前已计算实际值
+        """
+        self.ensure_attributes_calculated()
+
         attributes = []
 
         # 基础攻击力
-        attack_attr = copy.deepcopy(self.actual_base_attack)
-        attributes.append(attack_attr)
+        if self.actual_base_attack:
+            attributes.append(copy.deepcopy(self.actual_base_attack))
 
-        # 高级属性（已复制并添加来源）
-        main_attr = copy.deepcopy(self.actual_advanced_attribute)
-        attributes.append(main_attr)
+        # 高级属性
+        if self.actual_advanced_attribute:
+            attributes.append(copy.deepcopy(self.actual_advanced_attribute))
 
-        # 天赋属性（如果有）
+        # 天赋属性
         if self.talent_attributes and 0 <= self.talent - 1 < len(self.talent_attributes):
             talent_attr = copy.deepcopy(self.talent_attributes[self.talent - 1])
             attributes.append(talent_attr)
 
         return attributes
 
-    def set_actual_attributes(self, levels, refinement):
-        """获取武器实际属性值（包含等级和精炼加成）"""
-        if not self.data_calculation_flag:
-            # 1. 基础攻击力 = 基础值 + 等级加成 + 精炼加成
-            self.actual_base_attack.source = self.base_attack.source
-            self.actual_base_attack.base_value = self._calculate_actual_base_attack(levels, refinement)
+    def get_base_attack_value(self) -> int:
+        """获取基础攻击力实际值（快捷方法）"""
+        self.ensure_attributes_calculated()
+        return int(self.actual_base_attack.base_value) if self.actual_base_attack else 0
 
-            # 2. 高级属性 = 基础值 + 精炼加成
-            self.actual_advanced_attribute.source = self.advanced_attribute.source
-            self.actual_advanced_attribute.name = self.advanced_attribute.name
-            self.actual_advanced_attribute.base_value = self._calculate_actual_advanced_attribute(refinement)
-            self.actual_advanced_attribute.value_type = self.advanced_attribute.value_type
-            self.actual_advanced_attribute.merge_type = self.advanced_attribute.merge_type
+    def get_advanced_attribute_value(self) -> float:
+        """获取高级属性实际值（快捷方法）"""
+        self.ensure_attributes_calculated()
+        return self.actual_advanced_attribute.base_value if self.actual_advanced_attribute else 0.0
 
-            self.data_calculation_flag = True
-
-    def _calculate_actual_base_attack(self, levels, refinement) -> float:
-        """计算实际基础攻击力"""
-        # 基础值
-        base_value = self.base_attack.base_value
-
-        # 等级加成
-        level_bonus = self._get_level_bonus(levels)
-
-        # 精炼加成（基础攻击力的精炼加成）
-        refinement_bonus = self._get_refinement_bonus(refinement)
-
-        return int(base_value * (1 + level_bonus + refinement_bonus))
-
-    def _calculate_actual_advanced_attribute(self, refinement) -> float:
-        """计算实际高级属性值"""
-        # 基础值
-        base_value = self.advanced_attribute.base_value
-
-        # 精炼加成（高级属性的精炼加成）
-        refinement_bonus = self._get_advanced_refinement_bonus(refinement)
-
-        return base_value * (1 + refinement_bonus)
-
-    def _get_level_bonus(self, levels) -> float:
-        """获取等级加成值"""
-
-        return levels[str(self.level)].get("base_stat_growth", 0) / 10000.0
-
-    def _get_refinement_bonus(self, refinement) -> float:
-        """获取精炼加成（基础攻击力）"""
-
-        return refinement[str(self.refinement)].get("base_stat_growth", 0) / 10000.0
-
-    def _get_advanced_refinement_bonus(self, refinement) -> float:
-        """获取高级属性的精炼加成"""
-
-        return refinement[str(self.refinement)].get("advanced_stat_growth", 0) / 10000.0
+    def to_dict(self) -> Dict:
+        """转换为字典（用于序列化）"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'rarity': self.rarity,
+            'weapon_type': self.weapon_type,
+            'level': self.level,
+            'refinement': self.refinement,
+            'talent': self.talent,
+            'base_attack': self.base_attack,
+            'advanced_attribute': self.advanced_attribute,
+            'talent_attributes': self.talent_attributes
+        }
 
 
 @dataclass

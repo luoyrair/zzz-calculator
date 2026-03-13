@@ -59,7 +59,7 @@ class GearTab(QWidget):
         top_layout.setSpacing(15)
 
         # 驱动盘套装配置
-        self.gear_set_config = GearSetConfigWidget(self.app_core.data_manager)
+        self.gear_set_config = GearSetConfigWidget(self.app_core)
         top_layout.addWidget(self.gear_set_config, 0)
 
         # 全局强化等级设置
@@ -98,7 +98,7 @@ class GearTab(QWidget):
 
         # 创建6个驱动盘编辑器（3列×2行）
         for i in range(6):
-            editor = GearPieceEditor(i)
+            editor = GearPieceEditor(i, self.app_core)
             self.gear_editors[i] = editor
 
             row = i // 3  # 行索引 (0, 0, 0, 1, 1, 1)

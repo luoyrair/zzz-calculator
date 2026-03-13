@@ -29,8 +29,7 @@ class CharacterTab(QWidget):
         self.gear_tab = None
 
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         # 初始化设置管理器
         self.settings_manager = settings_manager
@@ -303,11 +302,11 @@ class CharacterTab(QWidget):
     def _load_data_to_ui(self):
         """加载数据到UI"""
         # 填充角色下拉框
-        characters = self.app_core.data_manager.get_all_characters()
+        characters = self.app_core.data_provider.get_all_characters()
         self.character_combo.populate_from_data(characters)
 
         # 填充武器下拉框
-        weapons = self.app_core.data_manager.get_all_weapons()
+        weapons = self.app_core.data_provider.get_all_weapons()
         self.weapon_combo.populate_from_data(weapons)
 
     # ========== 信号连接方法 ==========
@@ -315,10 +314,10 @@ class CharacterTab(QWidget):
     def _connect_signals(self):
         """连接信号"""
         # 状态管理器信号
-        self.state.character_changed.connect(self._on_state_character_changed)
-        self.state.weapon_changed.connect(self._on_state_weapon_changed)
-        self.state.character_cleared.connect(self._on_state_character_changed)
-        self.state.weapon_cleared.connect(self._on_state_weapon_changed)
+        self.app_core.character_changed.connect(self._on_state_character_changed)
+        self.app_core.weapon_changed.connect(self._on_state_weapon_changed)
+        self.app_core.character_cleared.connect(self._on_state_character_changed)
+        self.app_core.weapon_cleared.connect(self._on_state_weapon_changed)
 
         # UI控件信号
         self.character_combo.currentIndexChanged.connect(self._on_character_changed)
@@ -394,7 +393,7 @@ class CharacterTab(QWidget):
 
         if character_id:
             # 获取角色对象
-            character = self.app_core.data_manager.get_character(character_id)
+            character = self.app_core.data_provider.get_character(character_id)
             if not character:
                 self.logger.error(f"[ERROR CharacterTab] 未找到角色: {character_id} type: {type(character_id)}")
                 return
@@ -451,7 +450,7 @@ class CharacterTab(QWidget):
             self.logger.debug("尝试自动选择专属音擎: ID={weapon_id}")
 
             # 尝试获取音擎
-            weapon = self.app_core.data_manager.get_weapon(weapon_id)
+            weapon = self.app_core.data_provider.get_weapon(weapon_id)
             if weapon:
                 self.logger.debug("找到专属音擎: {weapon.name}")
 

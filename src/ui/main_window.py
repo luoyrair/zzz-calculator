@@ -25,8 +25,7 @@ class MainWindow(QMainWindow):
         self.logger.info("初始化主窗口...")
         self.app_core = app_core
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         try:
             self._init_ui()
@@ -126,10 +125,10 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         """连接信号"""
         # 连接应用核心的信号到状态栏更新
-        self.state.character_changed.connect(self._on_character_changed)
-        self.state.weapon_changed.connect(self._on_weapon_changed)
-        self.state.gear_sets_changed.connect(self._on_gear_set_changed)
-        self.state.gear_piece_changed.connect(self._on_gear_piece_changed)
+        self.app_core.character_changed.connect(self._on_character_changed)
+        self.app_core.weapon_changed.connect(self._on_weapon_changed)
+        self.app_core.gear_sets_changed.connect(self._on_gear_set_changed)
+        self.app_core.gear_piece_changed.connect(self._on_gear_piece_changed)
 
         # 连接角色选项卡和驱动盘选项卡
         if hasattr(self.right_panel, 'character_tab') and hasattr(self.right_panel, 'gear_tab'):

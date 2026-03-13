@@ -29,14 +29,14 @@ class GearSetConfigWidget(QWidget):
 
     gear_set_changed: pyqtSignal = pyqtSignal(list)
 
-    def __init__(self, data_manager, parent=None):
+    def __init__(self, app_core, parent=None):
         super().__init__(parent)
         self.logger = get_logger(f"ui.gear_set")
-        self.data_manager = data_manager
+        self.app_core = app_core
+        self.data_provider = app_core.data_provider
 
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         # 状态变量
         self.set_options = []  # 存储所有套装选项 (id, name)
@@ -74,7 +74,7 @@ class GearSetConfigWidget(QWidget):
     def _connect_signals(self):
         """连接信号"""
         # 状态管理器信号
-        self.state.state_changed.connect(self._on_state_changed)
+        self.app_core.state_changed.connect(self._on_state_changed)
 
         # UI信号
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
@@ -145,7 +145,7 @@ class GearSetConfigWidget(QWidget):
 
     def populate_set_options(self):
         """填充套装选项 - UI更新"""
-        set_options = self.data_manager.get_equipment()
+        set_options = self.data_provider.get_equipment_list()
 
         # 保存套装选项
         if set_options:
@@ -459,14 +459,14 @@ class GearPieceEditor(QFrame):
     main_attribute_changed: pyqtSignal = pyqtSignal(int, int, int)  # 位置, 主属性, 强化等级
     sub_attributes_changed: pyqtSignal = pyqtSignal(int, int, int, int)  # 位置, 副属性索引, 副属性ID, 强化等级
 
-    def __init__(self, position, parent=None):
+    def __init__(self, position, app_core, parent=None):
         super().__init__(parent)
         self.logger = get_logger(f"ui.gear_editor_{position}")
         self.position = position
+        self.app_core = app_core
 
         # 获取状态管理器实例
-        from src.core.state_manager import StateManager
-        self.state = StateManager.instance()
+        self.state = app_core.state_manager
 
         # 状态变量
         self.selected_subs = []
@@ -616,7 +616,7 @@ class GearPieceEditor(QFrame):
     def _connect_signals(self):
         """连接信号"""
         self.main_combo.currentIndexChanged.connect(self._on_main_attr_changed)
-        self.state.character_changed.connect(self._on_state_character_changed)
+        self.app_core.character_changed.connect(self._on_state_character_changed)
 
         # 副属性组合框信号
         for i, combo in enumerate(self.sub_combos):
