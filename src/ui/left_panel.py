@@ -251,7 +251,9 @@ class LeftPanel(QWidget):
             return
 
         # 格式化属性数据
-        basic_stats = FormatUtils().format_stats_with_recommendation(attributes, ColorConstants.BASIC_ATTRIBUTE_COLOR)
+        basic_stats = FormatUtils().format_stats_with_recommendation(
+            attributes, ColorConstants.BASIC_ATTRIBUTE_COLOR, self.app_core
+        )
 
         # 更新显示
         self.update_basic_stats(basic_stats)
@@ -268,7 +270,7 @@ class LeftPanel(QWidget):
 
         # 格式化属性数据
         character_stats = FormatUtils().format_stats_with_recommendation(
-            attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR
+            attributes, ColorConstants.CHARACTER_ATTRIBUTE_COLOR, self.app_core
         )
         self.logger.debug(f"character_stats: {character_stats}")
 

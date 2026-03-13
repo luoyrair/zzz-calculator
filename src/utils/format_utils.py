@@ -12,7 +12,7 @@ from src.utils.logger import get_logger
 class FormatUtils:
     """格式化工具类"""
 
-    def format_stats_with_recommendation(self, attributes: dict, base_color: str):
+    def format_stats_with_recommendation(self, attributes: dict, base_color: str, app_core=None):
         """格式化属性数据，标记推荐属性（只标记属性名）"""
         formatted = []
 
@@ -20,7 +20,7 @@ class FormatUtils:
             formatted_value = self.format_attribute_display(name, value)
 
             # 检查是否为推荐属性
-            is_recommended = self.is_recommended_attribute(name)
+            is_recommended = self.is_recommended_attribute(name, app_core)
 
             # 如果为推荐属性，属性名使用橙色，否则使用基础颜色
             if is_recommended:
@@ -54,19 +54,18 @@ class FormatUtils:
         return str(value)
 
     @staticmethod
-    def is_recommended_attribute(attribute_name: str) -> bool:
-        """检查属性是否为推荐属性 - 添加设置检查"""
-
-        from src.core.state_manager import StateManager
-        state = StateManager.instance().get_state()
-
-        # 直接从状态管理器获取推荐数据
-        recommend_data = state.recommend_data if state.current_character else None
-
+    def is_recommended_attribute(attribute_name: str, app_core=None) -> bool:
+        """检查属性是否为推荐属性 - 需要传入 app_core 或 state"""
         # 首先检查设置：是否使用原始推荐数据
         settings = settings_manager.get_settings()
         if not settings.auto_select.use_original_recommendations:
             return False
+
+        if app_core is None:
+            return False
+
+        state = app_core.state_manager.get_state()
+        recommend_data = state.recommend_data if state.current_character else None
 
         if not recommend_data:
             return False
